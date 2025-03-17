@@ -144,7 +144,7 @@ export default function NewOperationPage() {
 
       router.push(`/operations/${newOperation.op_id}`);
     } catch (error) {
-      toast("Failed to create the operation.");
+      toast(`Failed to create the operation. ${error}`);
     }
   };
 

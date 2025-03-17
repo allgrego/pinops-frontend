@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu";
 import { Input } from "@/core/components/ui/input";
 import {
   Table,
@@ -12,26 +18,18 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu";
-import { Badge } from "@/core/components/ui/badge";
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import {
-  getOperations,
   deleteOperation,
+  getOperations,
   type TradeOperation,
 } from "@/core/lib/data";
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function OperationsPage() {
   const [operations, setOperations] = useState<TradeOperation[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const router = useRouter();
 
   useEffect(() => {
     loadOperations();

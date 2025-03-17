@@ -70,6 +70,9 @@ export default function AgentsPage() {
     if (!newAgentName.trim()) return;
 
     const newAgent = createAgent({ name: newAgentName });
+
+    console.log("newAgent", newAgent);
+
     toast("The agent has been created successfully.");
 
     setNewAgentName("");

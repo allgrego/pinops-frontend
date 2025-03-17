@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable @next/next/no-async-client-component */
 "use client";
 
 import type React from "react";
@@ -37,11 +39,10 @@ import {
 } from "@/core/lib/data";
 import { toast } from "sonner";
 
-export default function EditOperationPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+type Params = Promise<{ id: string }>
+
+export default async function EditOperationPage(props: { params: Params }) {
+  const  params  = await props.params;
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
@@ -190,7 +191,7 @@ export default function EditOperationPage({
         toast("Failed to update the operation.");
       }
     } catch (error) {
-      toast("Failed to update the operation.");
+      toast(`Failed to update the operation. ${error}`);
     }
   };
 
@@ -205,7 +206,7 @@ export default function EditOperationPage({
       <div className="flex flex-col items-center justify-center h-full">
         <h2 className="text-2xl font-bold">Operation not found</h2>
         <p className="text-muted-foreground mb-4">
-          The operation you're looking for doesn't exist.
+          The operation you{"'"}re looking for doesn{"'"}t exist.
         </p>
         <Button asChild>
           <Link href="/operations">

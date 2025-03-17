@@ -70,6 +70,9 @@ export default function CarriersPage() {
     if (!newCarrierName.trim()) return;
 
     const newCarrier = createCarrier({ name: newCarrierName });
+
+    console.log("newCarrier", newCarrier);
+
     toast("The carrier has been created successfully.");
 
     setNewCarrierName("");

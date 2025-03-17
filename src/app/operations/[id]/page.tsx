@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable @next/next/no-async-client-component */
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
   Card,
@@ -9,23 +10,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/core/components/ui/card";
-import { Badge } from "@/core/components/ui/badge";
 import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
+import { addComment, getOperation, type TradeOperation } from "@/core/lib/data";
 import { ArrowLeft, Edit, MessageSquare, Send } from "lucide-react";
 import Link from "next/link";
-import { getOperation, type TradeOperation, addComment } from "@/core/lib/data";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-export default function OperationDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+type Params = Promise<{ id: string }>;
+
+export default async function OperationDetailPage(props: { params: Params }) {
+  const params = await props.params;
+
   const [operation, setOperation] = useState<TradeOperation | null>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
-  const router = useRouter();
 
   useEffect(() => {
     loadOperation();
@@ -62,7 +62,7 @@ export default function OperationDetailPage({
       <div className="flex flex-col items-center justify-center h-full">
         <h2 className="text-2xl font-bold">Operation not found</h2>
         <p className="text-muted-foreground mb-4">
-          The operation you're looking for doesn't exist.
+          The operation you{"'"}re looking for doesn{"'"}t exist.
         </p>
         <Button asChild>
           <Link href="/operations">

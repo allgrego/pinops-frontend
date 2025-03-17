@@ -70,6 +70,8 @@ export default function ClientsPage() {
     if (!newClientName.trim()) return;
 
     const newClient = createClient({ name: newClientName });
+
+    console.log("new Client", newClient);
     toast("The client has been created successfully.");
 
     setNewClientName("");
