@@ -4,7 +4,7 @@ import {
   LayoutDashboard,
   Menu,
   Package2,
-  Truck,
+  Ship,
   UserCog,
   Users,
   X,
@@ -36,10 +36,10 @@ const navItems = [
   {
     name: "Carriers",
     href: "/carriers",
-    icon: Truck,
+    icon: Ship,
   },
   {
-    name: "Agents",
+    name: "International Agents",
     href: "/agents",
     icon: UserCog,
   },

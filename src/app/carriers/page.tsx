@@ -1,22 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/core/components/ui/button";
-import { Input } from "@/core/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/core/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -26,75 +10,163 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/core/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu";
+import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/core/components/ui/table";
 import { Textarea } from "@/core/components/ui/textarea";
+import { addComment } from "@/core/lib/data";
 import {
-  Plus,
-  Search,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  MessageSquare,
-} from "lucide-react";
-import {
-  getCarriers,
   createCarrier,
-  updateCarrier,
   deleteCarrier,
-  type Carrier,
-  addComment,
-} from "@/core/lib/data";
+  getAllCarriers,
+  getCarrierTypeName,
+  updateCarrier,
+} from "@/modules/providers/lib/carriers";
+import {
+  Carrier,
+  CarrierCreate,
+  CarrierType,
+  CarrierTypes,
+  CarrierUpdate,
+} from "@/modules/providers/types/carriers.types";
+
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export default function CarriersPage() {
-  const [carriers, setCarriers] = useState<Carrier[]>([]);
+  /**
+   * - - - Carriers fetching
+   */
+  const carriersQuery = useQuery<Carrier[]>({
+    queryKey: ["carriersQuery"],
+    queryFn: async () => {
+      try {
+        return await getAllCarriers();
+      } catch (error) {
+        console.error("Failure fetching carriers", error);
+        return Promise.reject(`${error}`);
+      }
+    },
+  });
+
+  const carriers = carriersQuery.data || [];
+
+  /**
+   * - - --  Carrier create
+   */
+  const createCarrierMutation = useMutation<Carrier, Error, CarrierCreate>({
+    mutationKey: ["createCarrierMutation"],
+    mutationFn: async (newData) => await createCarrier(newData),
+    onError(error) {
+      toast(`Failure creating carrier. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Carrier update
+   */
+  const updateCarrierMutation = useMutation<
+    Carrier,
+    Error,
+    { carrierId: string; data: CarrierUpdate }
+  >({
+    mutationKey: ["updateCarrierMutation"],
+    mutationFn: async ({ carrierId, data }) =>
+      await updateCarrier(carrierId, data),
+    onError(error) {
+      toast(`Failure updating carrier. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Client delete
+   */
+  const deleteCarrierMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["deleteCarrierMutation"],
+    mutationFn: async (carrierId) => await deleteCarrier(carrierId),
+    onError(error) {
+      toast(`Failure deleting carrier. ${error}`);
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewCarrierOpen, setIsNewCarrierOpen] = useState(false);
   const [isEditCarrierOpen, setIsEditCarrierOpen] = useState(false);
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
   const [newCarrierName, setNewCarrierName] = useState("");
+  const [newCarrierType, setNewCarrierType] = useState("");
   const [editCarrierName, setEditCarrierName] = useState("");
+  const [editCarrierType, setEditCarrierType] = useState("");
   const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    loadCarriers();
-  }, []);
-
-  const loadCarriers = () => {
-    const carriersList = getCarriers();
-    setCarriers(carriersList);
+  const loadCarriers = async () => {
+    await carriersQuery.refetch();
   };
 
-  const handleCreateCarrier = () => {
+  const handleCreateCarrier = async () => {
     if (!newCarrierName.trim()) return;
 
-    const newCarrier = createCarrier({ name: newCarrierName });
+    const newCarrier = await createCarrierMutation.mutateAsync({
+      name: newCarrierName,
+      type: newCarrierType as CarrierType,
+    });
 
     console.log("newCarrier", newCarrier);
 
     toast("The carrier has been created successfully.");
 
     setNewCarrierName("");
+    setNewCarrierType("");
     setIsNewCarrierOpen(false);
-    loadCarriers();
+
+    await loadCarriers();
   };
 
-  const handleEditCarrier = () => {
+  const handleEditCarrier = async () => {
     if (!currentCarrier || !editCarrierName.trim()) return;
 
-    updateCarrier(currentCarrier.carrier_id, { name: editCarrierName });
+    await updateCarrierMutation.mutateAsync({
+      carrierId: currentCarrier.carrier_id,
+      data: {
+        name: editCarrierName,
+        type: editCarrierType as CarrierType,
+      },
+    });
+
     toast("The carrier has been updated successfully.");
 
     setIsEditCarrierOpen(false);
-    loadCarriers();
+    await loadCarriers();
   };
 
-  const handleDeleteCarrier = (id: string) => {
-    const success = deleteCarrier(id);
+  const handleDeleteCarrier = async (id: string) => {
+    const success = await deleteCarrierMutation.mutateAsync(id);
     if (success) {
       toast("The carrier has been deleted successfully.");
-      loadCarriers();
+      await loadCarriers();
     } else {
       toast("Failed to delete the carrier.");
     }
@@ -121,16 +193,15 @@ export default function CarriersPage() {
   const openEditDialog = (carrier: Carrier) => {
     setCurrentCarrier(carrier);
     setEditCarrierName(carrier.name);
+    setEditCarrierType(carrier.type);
     setIsEditCarrierOpen(true);
   };
 
-  const openCommentDialog = (carrier: Carrier) => {
-    setCurrentCarrier(carrier);
-    setIsCommentOpen(true);
-  };
-
   const filteredCarriers = carriers.filter((carrier) =>
-    carrier.name.toLowerCase().includes(searchTerm.toLowerCase())
+    carrier.name
+      .normalize("NFD")
+      .toLowerCase()
+      .includes(searchTerm.normalize("NFD").toLowerCase())
   );
 
   return (
@@ -140,6 +211,7 @@ export default function CarriersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Carriers</h1>
           <p className="text-muted-foreground">Manage your carriers</p>
         </div>
+
         <Dialog open={isNewCarrierOpen} onOpenChange={setIsNewCarrierOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -163,6 +235,26 @@ export default function CarriersPage() {
                   onChange={(e) => setNewCarrierName(e.target.value)}
                   placeholder="Enter carrier name"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-type">Carrier type</Label>
+
+                <Select
+                  value={newCarrierType}
+                  onValueChange={(value) => setNewCarrierType(value)}
+                >
+                  <SelectTrigger id="new-type">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(CarrierTypes).map((carrType) => (
+                      <SelectItem key={carrType} value={carrType}>
+                        {getCarrierTypeName(carrType)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
@@ -196,7 +288,8 @@ export default function CarriersPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Comments</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -214,9 +307,8 @@ export default function CarriersPage() {
               filteredCarriers.map((carrier) => (
                 <TableRow key={carrier.carrier_id}>
                   <TableCell className="font-medium">{carrier.name}</TableCell>
-                  <TableCell>
-                    {carrier.comments?.length || 0} comments
-                  </TableCell>
+                  <TableCell>{getCarrierTypeName(carrier.type)}</TableCell>
+                  <TableCell className="text-xs">{carrier.carrier_id}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -232,12 +324,12 @@ export default function CarriersPage() {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
+                        {/* <DropdownMenuItem
                           onClick={() => openCommentDialog(carrier)}
                         >
                           <MessageSquare className="mr-2 h-4 w-4" />
                           Add Comment
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                         <DropdownMenuItem
                           onClick={() =>
                             handleDeleteCarrier(carrier.carrier_id)
@@ -272,7 +364,28 @@ export default function CarriersPage() {
                 onChange={(e) => setEditCarrierName(e.target.value)}
               />
             </div>
-            {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Carrier type</Label>
+
+              <Select
+                value={editCarrierType}
+                onValueChange={(value) => setEditCarrierType(value)}
+              >
+                <SelectTrigger id="edit-type">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(CarrierTypes).map((carrType) => (
+                    <SelectItem key={carrType} value={carrType}>
+                      {getCarrierTypeName(carrType)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
               <div className="space-y-2">
                 <Label>Comments</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
@@ -289,7 +402,7 @@ export default function CarriersPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
           <DialogFooter>
             <Button
@@ -323,7 +436,7 @@ export default function CarriersPage() {
                 rows={4}
               />
             </div>
-            {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
+            {/* {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
               <div className="space-y-2">
                 <Label>Previous Comments</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
@@ -340,7 +453,7 @@ export default function CarriersPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCommentOpen(false)}>

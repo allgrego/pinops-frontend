@@ -26,50 +26,101 @@ import {
   TableHeader,
   TableRow,
 } from "@/core/components/ui/table";
-import { Textarea } from "@/core/components/ui/textarea";
 import {
-  addComment,
   createAgent,
   deleteAgent,
-  getAgents,
+  getAllAgents,
   updateAgent,
-  type Agent,
-} from "@/core/lib/data";
+} from "@/modules/providers/lib/agents";
+import {
+  Agent,
+  AgentCreate,
+  AgentUpdate,
+} from "@/modules/providers/types/agents";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Edit,
-  MessageSquare,
+  Loader2,
   MoreHorizontal,
   Plus,
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  /**
+   * - - - Agents fetching
+   */
+  const agentsQuery = useQuery<Agent[]>({
+    queryKey: ["agentsQuery"],
+    queryFn: async () => {
+      try {
+        return await getAllAgents();
+      } catch (error) {
+        console.error("Failure fetching agents", error);
+        return Promise.reject(`${error}`);
+      }
+    },
+  });
+
+  const agents = agentsQuery.data || [];
+
+  /**
+   * - - --  Agent create
+   */
+  const createAgentMutation = useMutation<Agent, Error, AgentCreate>({
+    mutationKey: ["createAgentMutation"],
+    mutationFn: async (newData) => await createAgent(newData),
+    onError(error) {
+      toast(`Failure creating agent. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Agent update
+   */
+  const updateAgentMutation = useMutation<
+    Agent,
+    Error,
+    { agentId: string; data: AgentUpdate }
+  >({
+    mutationKey: ["updateAgentMutation"],
+    mutationFn: async ({ agentId, data }) => await updateAgent(agentId, data),
+    onError(error) {
+      toast(`Failure updating agent. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Agent delete
+   */
+  const deleteAgentMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["deleteAgentMutation"],
+    mutationFn: async (agentId) => await deleteAgent(agentId),
+    onError(error) {
+      toast(`Failure deleting agent. ${error}`);
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewAgentOpen, setIsNewAgentOpen] = useState(false);
   const [isEditAgentOpen, setIsEditAgentOpen] = useState(false);
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
   const [newAgentName, setNewAgentName] = useState("");
   const [editAgentName, setEditAgentName] = useState("");
-  const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    loadAgents();
-  }, []);
-
-  const loadAgents = () => {
-    const agentsList = getAgents();
-    setAgents(agentsList);
+  const loadAgents = async () => {
+    await agentsQuery.refetch();
   };
 
-  const handleCreateAgent = () => {
+  const handleCreateAgent = async () => {
     if (!newAgentName.trim()) return;
 
-    const newAgent = createAgent({ name: newAgentName });
+    const newAgent = await createAgentMutation.mutateAsync({
+      name: newAgentName,
+    });
 
     console.log("newAgent", newAgent);
 
@@ -77,40 +128,32 @@ export default function AgentsPage() {
 
     setNewAgentName("");
     setIsNewAgentOpen(false);
-    loadAgents();
+    await loadAgents();
   };
 
-  const handleEditAgent = () => {
+  const handleEditAgent = async () => {
     if (!currentAgent || !editAgentName.trim()) return;
 
-    updateAgent(currentAgent.agent_id, { name: editAgentName });
-    toast("The agent has been updated successfully.");
+    const updatedAgent = await updateAgentMutation.mutateAsync({
+      agentId: currentAgent.agent_id,
+      data: {
+        name: editAgentName,
+      },
+    });
+
+    toast(`The agent ${updatedAgent?.name} has been updated successfully.`);
 
     setIsEditAgentOpen(false);
-    loadAgents();
+    await loadAgents();
   };
 
-  const handleDeleteAgent = (id: string) => {
-    const success = deleteAgent(id);
+  const handleDeleteAgent = async (id: string) => {
+    const success = await deleteAgentMutation.mutateAsync(id);
     if (success) {
       toast("The agent has been deleted successfully.");
       loadAgents();
     } else {
       toast("Failed to delete the agent.");
-    }
-  };
-
-  const handleAddComment = () => {
-    if (!currentAgent || !comment.trim()) return;
-
-    const newComment = addComment("agent", currentAgent.agent_id, comment);
-    if (newComment) {
-      toast("Your comment has been added successfully.");
-      setComment("");
-      setIsCommentOpen(false);
-      loadAgents();
-    } else {
-      toast("Failed to add comment.");
     }
   };
 
@@ -120,13 +163,17 @@ export default function AgentsPage() {
     setIsEditAgentOpen(true);
   };
 
-  const openCommentDialog = (agent: Agent) => {
-    setCurrentAgent(agent);
-    setIsCommentOpen(true);
-  };
-
   const filteredAgents = agents.filter((agent) =>
-    agent.name.toLowerCase().includes(searchTerm.toLowerCase())
+    agent.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(
+        searchTerm
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+      )
   );
 
   return (
@@ -168,7 +215,15 @@ export default function AgentsPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateAgent}>Create</Button>
+              <Button
+                disabled={createAgentMutation.isPending}
+                onClick={handleCreateAgent}
+              >
+                {createAgentMutation.isPending && (
+                  <Loader2 className="animate-spin" />
+                )}
+                Create
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -192,7 +247,7 @@ export default function AgentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Comments</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -210,7 +265,7 @@ export default function AgentsPage() {
               filteredAgents.map((agent) => (
                 <TableRow key={agent.agent_id}>
                   <TableCell className="font-medium">{agent.name}</TableCell>
-                  <TableCell>{agent.comments?.length || 0} comments</TableCell>
+                  <TableCell className="text-xs">{agent.agent_id}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -223,12 +278,6 @@ export default function AgentsPage() {
                         <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openCommentDialog(agent)}
-                        >
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Add Comment
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDeleteAgent(agent.agent_id)}
@@ -262,7 +311,7 @@ export default function AgentsPage() {
                 onChange={(e) => setEditAgentName(e.target.value)}
               />
             </div>
-            {currentAgent?.comments && currentAgent.comments.length > 0 && (
+            {/* {currentAgent?.comments && currentAgent.comments.length > 0 && (
               <div className="space-y-2">
                 <Label>Comments</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
@@ -279,61 +328,13 @@ export default function AgentsPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditAgentOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleEditAgent}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Comment Dialog */}
-      <Dialog open={isCommentOpen} onOpenChange={setIsCommentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Comment</DialogTitle>
-            <DialogDescription>
-              Add a comment to {currentAgent?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="comment">Comment</Label>
-              <Textarea
-                id="comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Enter your comment"
-                rows={4}
-              />
-            </div>
-            {currentAgent?.comments && currentAgent.comments.length > 0 && (
-              <div className="space-y-2">
-                <Label>Previous Comments</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {currentAgent.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p>{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCommentOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddComment}>Add Comment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

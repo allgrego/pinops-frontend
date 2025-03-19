@@ -1,38 +1,49 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card";
-import { getAgents, getCarriers, getClients, getOperations } from "@/core/lib/data";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/core/components/ui/card";
+import { getGeneralStats } from "@/modules/dashboard/lib/dashboard";
+import { Statistics } from "@/modules/dashboard/types/dashboard";
+import { useQuery } from "@tanstack/react-query";
 import { Package2, Truck, UserCog, Users } from "lucide-react";
-import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    operations: 0,
-    clients: 0,
-    carriers: 0,
-    agents: 0,
+  /**
+   * - - - stats fetching
+   */
+  const statisticsQuery = useQuery<Statistics>({
+    queryKey: ["statisticsQuery"],
+    queryFn: async () => {
+      try {
+        return await getGeneralStats();
+      } catch (error) {
+        console.error("Failure fetching stats", error);
+        return Promise.reject(`${error}`);
+      }
+    },
   });
 
-  useEffect(() => {
-    const operations = getOperations();
-    const clients = getClients();
-    const carriers = getCarriers();
-    const agents = getAgents();
+  const data = statisticsQuery.data;
 
-    setStats({
-      operations: operations.length,
-      clients: clients.length,
-      carriers: carriers.length,
-      agents: agents.length,
-    });
-  }, []);
+  const isLoading = statisticsQuery.isLoading;
+
+  const stats = {
+    operations: data?.totalOpsFiles || 0,
+    clients: data?.totalClients || 0,
+    carriers: data?.totalCarriers || 0,
+    agents: data?.totalAgents || 0,
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of your trade operations system
+          Overview of your operations system
         </p>
       </div>
 
@@ -45,7 +56,9 @@ export default function DashboardPage() {
             <Package2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.operations}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : stats.operations}
+            </div>
           </CardContent>
         </Card>
 
@@ -55,7 +68,9 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.clients}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : stats.clients}
+            </div>
           </CardContent>
         </Card>
 
@@ -65,17 +80,23 @@ export default function DashboardPage() {
             <Truck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.carriers}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : stats.carriers}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agents</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Agents
+            </CardTitle>
             <UserCog className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.agents}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "-" : stats.agents}
+            </div>
           </CardContent>
         </Card>
       </div>

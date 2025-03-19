@@ -1,22 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/core/components/ui/button";
-import { Input } from "@/core/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/core/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -26,28 +10,103 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/core/components/ui/dialog";
-import { Label } from "@/core/components/ui/label";
-import { Textarea } from "@/core/components/ui/textarea";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/core/components/ui/dropdown-menu";
+import { Input } from "@/core/components/ui/input";
+import { Label } from "@/core/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/core/components/ui/table";
+import { Textarea } from "@/core/components/ui/textarea";
+import { addComment } from "@/core/lib/data";
+import {
+  createClient,
+  deleteClient,
+  getAllClients,
+  updateClient,
+} from "@/modules/clients/lib/clients";
+import {
+  Client,
+  ClientCreate,
+  ClientUpdate,
+} from "@/modules/clients/types/clients";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Edit,
+  MessageSquare,
+  MoreHorizontal,
   Plus,
   Search,
-  MoreHorizontal,
-  Edit,
   Trash2,
-  MessageSquare,
 } from "lucide-react";
-import {
-  getClients,
-  createClient,
-  updateClient,
-  deleteClient,
-  type Client,
-  addComment,
-} from "@/core/lib/data";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+  /**
+   * - - - Clients fetching
+   */
+  const clientsQuery = useQuery<Client[]>({
+    queryKey: ["ClientsQuery"],
+    queryFn: async () => {
+      try {
+        return await getAllClients();
+      } catch (error) {
+        console.error("Failure fetching clients", error);
+        return Promise.reject(`${error}`);
+      }
+    },
+  });
+
+  const clients = clientsQuery.data || [];
+
+  /**
+   * - - --  Client create
+   */
+  const createClientMutation = useMutation<Client, Error, ClientCreate>({
+    mutationKey: ["createClientMutation"],
+    mutationFn: async (newData) => await createClient(newData),
+    onError(error) {
+      toast(`Failure creating client. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Client update
+   */
+  const updateClientMutation = useMutation<
+    Client,
+    Error,
+    { clientId: string; data: ClientUpdate }
+  >({
+    mutationKey: ["updateClientMutation"],
+    mutationFn: async ({ clientId, data }) =>
+      await updateClient(clientId, data),
+    onError(error) {
+      toast(`Failure updating client. ${error}`);
+    },
+  });
+
+  /**
+   * - - --  Client delete
+   */
+  const deleteClientMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["deleteClientMutation"],
+    mutationFn: async (clientId) => await deleteClient(clientId),
+    onError(error) {
+      toast(`Failure deleting client. ${error}`);
+    },
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [isEditClientOpen, setIsEditClientOpen] = useState(false);
@@ -57,43 +116,46 @@ export default function ClientsPage() {
   const [editClientName, setEditClientName] = useState("");
   const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = () => {
-    const clientsList = getClients();
-    setClients(clientsList);
+  const loadClients = async () => {
+    await clientsQuery.refetch();
   };
 
-  const handleCreateClient = () => {
+  const handleCreateClient = async () => {
     if (!newClientName.trim()) return;
 
-    const newClient = createClient({ name: newClientName });
+    const newClient = await createClientMutation.mutateAsync({
+      name: newClientName,
+    });
 
     console.log("new Client", newClient);
     toast("The client has been created successfully.");
 
     setNewClientName("");
     setIsNewClientOpen(false);
-    loadClients();
+    await loadClients();
   };
 
-  const handleEditClient = () => {
+  const handleEditClient = async () => {
     if (!currentClient || !editClientName.trim()) return;
 
-    updateClient(currentClient.client_id, { name: editClientName });
-    toast("The client has been updated successfully.");
+    const updatedClient = await updateClientMutation.mutateAsync({
+      clientId: currentClient.client_id,
+      data: {
+        name: editClientName,
+      },
+    });
+
+    toast(`The client ${updatedClient?.name} has been updated successfully.`);
 
     setIsEditClientOpen(false);
-    loadClients();
+    await loadClients();
   };
 
-  const handleDeleteClient = (id: string) => {
-    const success = deleteClient(id);
+  const handleDeleteClient = async (id: string) => {
+    const success = await deleteClientMutation.mutateAsync(id);
     if (success) {
       toast("The client has been deleted successfully.");
-      loadClients();
+      await loadClients();
     } else {
       toast("Failed to delete the client.");
     }
@@ -125,7 +187,16 @@ export default function ClientsPage() {
   };
 
   const filteredClients = clients.filter((client) =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase())
+    client.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(
+        searchTerm
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+      )
   );
 
   return (
@@ -191,12 +262,21 @@ export default function ClientsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Comments</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredClients.length === 0 ? (
+            {clientsQuery.isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : filteredClients.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={3}
@@ -209,7 +289,7 @@ export default function ClientsPage() {
               filteredClients.map((client) => (
                 <TableRow key={client.client_id}>
                   <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.comments?.length || 0} comments</TableCell>
+                  <TableCell className="text-xs">{client.client_id}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -263,7 +343,7 @@ export default function ClientsPage() {
                 onChange={(e) => setEditClientName(e.target.value)}
               />
             </div>
-            {currentClient?.comments && currentClient.comments.length > 0 && (
+            {/* {currentClient?.comments && currentClient.comments.length > 0 && (
               <div className="space-y-2">
                 <Label>Comments</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
@@ -280,7 +360,7 @@ export default function ClientsPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
           <DialogFooter>
             <Button
@@ -314,7 +394,7 @@ export default function ClientsPage() {
                 rows={4}
               />
             </div>
-            {currentClient?.comments && currentClient.comments.length > 0 && (
+            {/* {currentClient?.comments && currentClient.comments.length > 0 && (
               <div className="space-y-2">
                 <Label>Previous Comments</Label>
                 <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
@@ -331,7 +411,7 @@ export default function ClientsPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCommentOpen(false)}>
