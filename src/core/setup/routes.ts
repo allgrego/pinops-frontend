@@ -21,7 +21,7 @@
 export const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 if (!BACKEND_BASE_URL) {
-  console.critical("Backend URL basepath is not set in env variables");
+  console.error("Backend URL basepath is not set in env variables");
   throw new Error("Backend URL basepath is not set in env variables");
 }
 

@@ -17,6 +17,8 @@ import { Button } from "@/core/components/ui/button";
 import { useMobile } from "@/core/hooks/useMobile";
 import { cn } from "@/core/lib/utils";
 
+const APP_NAME = "PinOps";
+
 const navItems = [
   {
     name: "Dashboard",
@@ -74,7 +76,7 @@ export function Sidebar() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Trade Ops</h2>
+                <h2 className="text-xl font-bold">{APP_NAME}</h2>
                 <Button variant="ghost" size="icon" onClick={toggleSidebar}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -107,7 +109,7 @@ export function Sidebar() {
   return (
     <div className="hidden md:flex flex-col w-64 border-r p-4">
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Trade Ops</h2>
+        <h2 className="text-xl font-bold">{APP_NAME}</h2>
       </div>
       <nav className="space-y-2">
         {navItems.map((item) => (

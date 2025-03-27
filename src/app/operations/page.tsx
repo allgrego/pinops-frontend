@@ -177,7 +177,7 @@ export default function OperationsPage() {
                         <DropdownMenuItem asChild>
                           <Link href={`/operations/${operation.op_id}`}>
                             <Eye className="mr-2 h-4 w-4" />
-                            View
+                            Details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>

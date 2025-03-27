@@ -33,8 +33,13 @@ export const getAllClients = async (): Promise<Client[]> => {
     // Transform into internal schema
 
     const clients: Client[] = jsonResponse.map((client) => ({
-      client_id: client?.client_id || "",
+      clientId: client?.client_id || "",
       name: client?.name || "",
+      taxId: client?.tax_id || "",
+      contactEmail: client?.contact_email || "",
+      contactName: client?.contact_name || "",
+      createdAt: client?.created_at || "",
+      contactPhone: client?.contact_phone || "",
     }));
 
     return clients;
@@ -60,6 +65,10 @@ export const createClient = async (
     // Transform into backend schema
     const backendPayload: ClientCreateBackend = {
       name: newClientData?.name,
+      tax_id: newClientData?.taxId,
+      contact_email: newClientData?.contactEmail,
+      contact_name: newClientData?.contactName,
+      contact_phone: newClientData?.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/clients`;
@@ -82,8 +91,13 @@ export const createClient = async (
 
     // Transform response into internal schema
     const newClient: Client = {
-      client_id: jsonResponse?.client_id || "",
+      clientId: jsonResponse?.client_id || "",
       name: jsonResponse?.name || "",
+      taxId: jsonResponse?.tax_id || "",
+      contactEmail: jsonResponse?.contact_email || "",
+      contactName: jsonResponse?.contact_name || "",
+      createdAt: jsonResponse?.created_at || "",
+      contactPhone: jsonResponse?.contact_phone || "",
     };
 
     return newClient;
@@ -111,6 +125,10 @@ export const updateClient = async (
     // Transform into backend schema
     const backendPayload: ClientUpdateBackend = {
       name: newClientData?.name,
+      tax_id: newClientData?.taxId,
+      contact_email: newClientData?.contactEmail,
+      contact_name: newClientData?.contactName,
+      contact_phone: newClientData?.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/clients/${clientId}`;
@@ -133,8 +151,13 @@ export const updateClient = async (
 
     // Transform response into internal schema
     const updatedClient: Client = {
-      client_id: jsonResponse?.client_id || "",
+      clientId: jsonResponse?.client_id || "",
       name: jsonResponse?.name || "",
+      taxId: jsonResponse?.tax_id || "",
+      contactEmail: jsonResponse?.contact_email || "",
+      contactName: jsonResponse?.contact_name || "",
+      createdAt: jsonResponse?.created_at || "",
+      contactPhone: jsonResponse?.contact_phone || "",
     };
 
     return updatedClient;
