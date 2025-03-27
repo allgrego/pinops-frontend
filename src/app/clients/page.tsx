@@ -402,7 +402,13 @@ export default function ClientsPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateClient}>Create</Button>
+              <Button
+                onClick={handleCreateClient}
+                disabled={createClientMutation.isPending}
+                loading={createClientMutation.isPending}
+              >
+                {createClientMutation.isPending ? "Creating..." : "Create"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -599,7 +605,9 @@ export default function ClientsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Client name</Label>
+              <Label htmlFor="name">
+                Client name <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="name"
                 value={editClientData?.name || ""}
@@ -677,8 +685,9 @@ export default function ClientsPage() {
             <Button
               onClick={handleEditClient}
               disabled={updateClientMutation.isPending}
+              loading={updateClientMutation.isPending}
             >
-              Save Changes
+              {updateClientMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

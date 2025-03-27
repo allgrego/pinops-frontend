@@ -1,5 +1,11 @@
 "use client";
 
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
 import { Button } from "@/core/components/ui/button";
 import {
   Dialog,
@@ -26,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/core/components/ui/table";
+import useDialog from "@/core/hooks/useDialog";
 import {
   createAgent,
   deleteAgent,
@@ -37,17 +44,6 @@ import {
   AgentCreate,
   AgentUpdate,
 } from "@/modules/providers/types/agents";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  Edit,
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 export default function AgentsPage() {
   /**
@@ -67,101 +63,15 @@ export default function AgentsPage() {
 
   const agents = agentsQuery.data || [];
 
-  /**
-   * - - --  Agent create
-   */
-  const createAgentMutation = useMutation<Agent, Error, AgentCreate>({
-    mutationKey: ["createAgentMutation"],
-    mutationFn: async (newData) => await createAgent(newData),
-    onError(error) {
-      toast(`Failure creating agent. ${error}`);
-    },
-  });
-
-  /**
-   * - - --  Agent update
-   */
-  const updateAgentMutation = useMutation<
-    Agent,
-    Error,
-    { agentId: string; data: AgentUpdate }
-  >({
-    mutationKey: ["updateAgentMutation"],
-    mutationFn: async ({ agentId, data }) => await updateAgent(agentId, data),
-    onError(error) {
-      toast(`Failure updating agent. ${error}`);
-    },
-  });
-
-  /**
-   * - - --  Agent delete
-   */
-  const deleteAgentMutation = useMutation<boolean, Error, string>({
-    mutationKey: ["deleteAgentMutation"],
-    mutationFn: async (agentId) => await deleteAgent(agentId),
-    onError(error) {
-      toast(`Failure deleting agent. ${error}`);
-    },
-  });
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isNewAgentOpen, setIsNewAgentOpen] = useState(false);
-  const [isEditAgentOpen, setIsEditAgentOpen] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
-  const [newAgentName, setNewAgentName] = useState("");
-  const [editAgentName, setEditAgentName] = useState("");
-
   const loadAgents = async () => {
     await agentsQuery.refetch();
   };
 
-  const handleCreateAgent = async () => {
-    if (!newAgentName.trim()) return;
+  /**
+   * - - - Search and filters logic
+   */
 
-    const newAgent = await createAgentMutation.mutateAsync({
-      name: newAgentName,
-    });
-
-    console.log("newAgent", newAgent);
-
-    toast("The agent has been created successfully.");
-
-    setNewAgentName("");
-    setIsNewAgentOpen(false);
-    await loadAgents();
-  };
-
-  const handleEditAgent = async () => {
-    if (!currentAgent || !editAgentName.trim()) return;
-
-    const updatedAgent = await updateAgentMutation.mutateAsync({
-      agentId: currentAgent.agent_id,
-      data: {
-        name: editAgentName,
-      },
-    });
-
-    toast(`The agent ${updatedAgent?.name} has been updated successfully.`);
-
-    setIsEditAgentOpen(false);
-    await loadAgents();
-  };
-
-  const handleDeleteAgent = async (id: string) => {
-    const success = await deleteAgentMutation.mutateAsync(id);
-    if (success) {
-      toast("The agent has been deleted successfully.");
-      loadAgents();
-    } else {
-      toast("Failed to delete the agent.");
-    }
-  };
-
-  const openEditDialog = (agent: Agent) => {
-    setCurrentAgent(agent);
-    setEditAgentName(agent.name);
-    setIsEditAgentOpen(true);
-  };
+  const [searchTerm, setSearchTerm] = useState("");
 
   const filteredAgents = agents.filter((agent) =>
     agent.name
@@ -176,12 +86,212 @@ export default function AgentsPage() {
       )
   );
 
+  /**
+   * - - - - Selected agent logic (for both details and edit)
+   */
+  const [currentAgent, setCurrentAgent] = useState<Agent | null>(null);
+
+  /**
+   * - - -  Agent details
+   */
+
+  const agentDetailsDialogData = useDialog();
+
+  const openDetailsDialog = (agent: Agent) => {
+    setCurrentAgent(agent);
+
+    agentDetailsDialogData.open();
+  };
+
+  /**
+   * - - --  Agent create logic
+   */
+
+  // Mutation
+  const createAgentMutation = useMutation<Agent, Error, AgentCreate>({
+    mutationKey: ["createAgentMutation"],
+    mutationFn: async (newData) => await createAgent(newData),
+    onError(error) {
+      toast(`Failure creating agent. ${error}`);
+    },
+  });
+
+  const { isOpen: isNewAgentOpen, setIsOpen: setIsNewAgentOpen } = useDialog();
+
+  // Data for new Agent on form in dialog
+  const [newAgentData, setNewAgentData] = useState<AgentCreate>({
+    name: "",
+    contactEmail: null,
+    contactName: null,
+    contactPhone: null,
+  });
+
+  const resetNewAgentData = () => {
+    setNewAgentData({
+      name: "",
+      contactEmail: null,
+      contactName: null,
+      contactPhone: null,
+    });
+  };
+
+  const updateNewAgentData = (newData: Partial<AgentCreate>) => {
+    setNewAgentData((c) => ({
+      ...c,
+      ...newData,
+    }));
+  };
+
+  const handleCreateAgent = async () => {
+    // TODO Validate all data
+    const newAgentName = String(newAgentData?.name || "").trim();
+
+    if (!newAgentName) {
+      toast("Agent name is required");
+      return;
+    }
+
+    const newAgent = await createAgentMutation.mutateAsync({
+      name: newAgentName,
+      contactEmail: newAgentData?.contactEmail || null,
+      contactName: newAgentData?.contactName || null,
+      contactPhone: newAgentData?.contactPhone || null,
+    });
+
+    console.log("newAgent", newAgent);
+
+    toast("The Agent has been created successfully.");
+
+    resetNewAgentData();
+    setIsNewAgentOpen(false);
+    await loadAgents();
+  };
+
+  /**
+   * - - --  Agent update
+   */
+
+  // Mutation
+  const updateAgentMutation = useMutation<
+    Agent,
+    Error,
+    { agentId: string; data: AgentUpdate }
+  >({
+    mutationKey: ["updateAgentMutation"],
+    mutationFn: async ({ agentId, data }) => await updateAgent(agentId, data),
+    onError(error) {
+      toast(`Failure updating agent. ${error}`);
+    },
+  });
+
+  const { isOpen: isEditAgentOpen, setIsOpen: setIsEditAgentOpen } =
+    useDialog();
+
+  const [editAgentData, setEditAgentData] = useState<AgentUpdate>({
+    name: "",
+  });
+
+  const updateEditAgentData = (editData: AgentUpdate) => {
+    setEditAgentData((c) => ({
+      ...c,
+      ...editData,
+    }));
+  };
+
+  const handleEditAgent = async () => {
+    // TODO validate data
+    const editAgentName = editAgentData?.name?.trim();
+
+    if (!editAgentName) {
+      toast("agent name is required");
+      return;
+    }
+
+    if (!currentAgent) {
+      toast("Unable to get agent data");
+      return;
+    }
+
+    const updatedAgent = await updateAgentMutation.mutateAsync({
+      agentId: currentAgent.agentId,
+      data: {
+        name: editAgentName,
+        contactEmail: editAgentData?.contactEmail || null,
+        contactName: editAgentData?.contactName || null,
+        contactPhone: editAgentData?.contactPhone || null,
+      },
+    });
+
+    toast(`The agent ${updatedAgent?.name} has been updated successfully.`);
+
+    setIsEditAgentOpen(false);
+    await loadAgents();
+  };
+
+  const openEditDialog = (agent: Agent) => {
+    setCurrentAgent(agent);
+    setEditAgentData({
+      name: agent?.name,
+      contactEmail: agent?.contactEmail,
+      contactName: agent?.contactName,
+      contactPhone: agent?.contactPhone,
+    });
+
+    setIsEditAgentOpen(true);
+  };
+
+  /**
+   * - - --  Agent delete logic
+   */
+
+  // Mutation
+  const deleteAgentMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["deleteAgentMutation"],
+    mutationFn: async (agentId) => await deleteAgent(agentId),
+    onError(error) {
+      toast(`Failure deleting agent. ${error}`);
+    },
+  });
+
+  const { isOpen: isDeleteAgentOpen, setIsOpen: setIsDeleteAgentOpen } =
+    useDialog();
+
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState<string>("");
+
+  const openDeleteConfirmationDialog = () => {
+    setDeleteConfirmationText("");
+    setIsDeleteAgentOpen(true);
+  };
+
+  const handleDeleteAgent = async (id: string) => {
+    if (!id) {
+      toast("Unable to delete agent. No ID found");
+      return;
+    }
+
+    const success = await deleteAgentMutation.mutateAsync(id);
+
+    if (success) {
+      // Close modal
+      setIsDeleteAgentOpen(false);
+      toast("The agent has been deleted successfully.");
+      await loadAgents();
+    } else {
+      toast("Failed to delete the agent.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Agents</h1>
-          <p className="text-muted-foreground">Manage your agents</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            International agents
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your international agent partners
+          </p>
         </div>
         <Dialog open={isNewAgentOpen} onOpenChange={setIsNewAgentOpen}>
           <DialogTrigger asChild>
@@ -202,9 +312,46 @@ export default function AgentsPage() {
                 <Label htmlFor="name">Agent Name</Label>
                 <Input
                   id="name"
-                  value={newAgentName}
-                  onChange={(e) => setNewAgentName(e.target.value)}
+                  value={newAgentData?.name || ""}
+                  onChange={(e) => updateNewAgentData({ name: e.target.value })}
                   placeholder="Enter agent name"
+                />
+              </div>
+
+              {/* Contact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contactName">Contact name</Label>
+                  <Input
+                    id="contactName"
+                    value={newAgentData?.contactName || ""}
+                    onChange={(e) =>
+                      updateNewAgentData({ contactName: e.target.value })
+                    }
+                    placeholder="Teresa Torres"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactPhone">Contact phone</Label>
+                  <Input
+                    id="contactPhone"
+                    value={newAgentData?.contactPhone || ""}
+                    onChange={(e) =>
+                      updateNewAgentData({ contactPhone: e.target.value })
+                    }
+                    placeholder="+12 456 78 90"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact email</Label>
+                <Input
+                  id="contactEmail"
+                  value={newAgentData?.contactEmail || ""}
+                  onChange={(e) =>
+                    updateNewAgentData({ contactEmail: e.target.value })
+                  }
+                  placeholder="agent@email.com"
                 />
               </div>
             </div>
@@ -218,11 +365,9 @@ export default function AgentsPage() {
               <Button
                 disabled={createAgentMutation.isPending}
                 onClick={handleCreateAgent}
+                loading={createAgentMutation.isPending}
               >
-                {createAgentMutation.isPending && (
-                  <Loader2 className="animate-spin" />
-                )}
-                Create
+                {createAgentMutation.isPending ? "Creating..." : "Create"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -247,12 +392,21 @@ export default function AgentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>ID</TableHead>
+              <TableHead>Contact</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAgents.length === 0 ? (
+            {agentsQuery.isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : filteredAgents.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={3}
@@ -263,9 +417,20 @@ export default function AgentsPage() {
               </TableRow>
             ) : (
               filteredAgents.map((agent) => (
-                <TableRow key={agent.agent_id}>
-                  <TableCell className="font-medium">{agent.name}</TableCell>
-                  <TableCell className="text-xs">{agent.agent_id}</TableCell>
+                <TableRow key={agent.agentId}>
+                  <TableCell
+                    className="font-medium"
+                    onClick={() => openDetailsDialog(agent)}
+                  >
+                    {agent?.name || "-"}
+                  </TableCell>
+                  <TableCell
+                    className=""
+                    onClick={() => openDetailsDialog(agent)}
+                  >
+                    {agent?.contactName || "-"}
+                  </TableCell>
+                  {/* Actions */}
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -275,12 +440,21 @@ export default function AgentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => openDetailsDialog(agent)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDeleteAgent(agent.agent_id)}
+                          onClick={() => {
+                            setCurrentAgent(agent);
+                            openDeleteConfirmationDialog();
+                          }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -295,6 +469,79 @@ export default function AgentsPage() {
         </Table>
       </div>
 
+      {/* Details modal */}
+      <Dialog
+        open={agentDetailsDialogData.isOpen}
+        onOpenChange={agentDetailsDialogData.setIsOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Agent details</DialogTitle>
+            <DialogDescription className="text-xs">
+              View international agent information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Agent name</Label>
+              <div>{currentAgent?.name || "-"}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Contact name</Label>
+                <div>{currentAgent?.contactName || "-"}</div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <div>{currentAgent?.contactPhone || "-"}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Contact email</Label>
+              <div>{currentAgent?.contactEmail || "-"}</div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 text-xs mt-6">
+              <div className="space-y-2">
+                <Label>Internal ID</Label>
+                <div className="whitespace-nowrap">
+                  {currentAgent?.agentId || "-"}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Created at</Label>
+                <div className="whitespace-nowrap">
+                  {currentAgent?.createdAt || "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (!currentAgent) {
+                  console.error(
+                    "No selected agent found. Unable to open edit dialog after details dialog"
+                  );
+                  return;
+                }
+
+                // close details dialog
+                agentDetailsDialogData.close();
+
+                openEditDialog(currentAgent);
+              }}
+            >
+              Edit
+            </Button>
+            <Button variant="outline" onClick={agentDetailsDialogData.close}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Agent Dialog */}
       <Dialog open={isEditAgentOpen} onOpenChange={setIsEditAgentOpen}>
         <DialogContent>
@@ -304,40 +551,104 @@ export default function AgentsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Agent Name</Label>
+              <Label htmlFor="name">Agent Name</Label>
               <Input
-                id="edit-name"
-                value={editAgentName}
-                onChange={(e) => setEditAgentName(e.target.value)}
+                id="name"
+                value={editAgentData?.name || ""}
+                onChange={(e) => updateEditAgentData({ name: e.target.value })}
+                placeholder="Enter agent name"
               />
             </div>
-            {/* {currentAgent?.comments && currentAgent.comments.length > 0 && (
+
+            {/* Contact */}
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label>Comments</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {currentAgent.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p>{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
+                <Label htmlFor="contactName">Contact name</Label>
+                <Input
+                  id="contactName"
+                  value={editAgentData?.contactName || ""}
+                  onChange={(e) =>
+                    updateEditAgentData({ contactName: e.target.value })
+                  }
+                  placeholder="Teresa Torres"
+                />
               </div>
-            )} */}
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <Input
+                  id="contactPhone"
+                  value={editAgentData?.contactPhone || ""}
+                  onChange={(e) =>
+                    updateEditAgentData({ contactPhone: e.target.value })
+                  }
+                  placeholder="+12 456 78 90"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Contact email</Label>
+              <Input
+                id="contactEmail"
+                value={editAgentData?.contactEmail || ""}
+                onChange={(e) =>
+                  updateEditAgentData({ contactEmail: e.target.value })
+                }
+                placeholder="agent@email.com"
+              />
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditAgentOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditAgent}>Save Changes</Button>
+            <Button
+              variant="destructive"
+              disabled={updateAgentMutation.isPending}
+              onClick={() => {
+                setIsEditAgentOpen(false);
+                openDeleteConfirmationDialog();
+              }}
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={handleEditAgent}
+              disabled={updateAgentMutation.isPending}
+              loading={updateAgentMutation.isPending}
+            >
+              {updateAgentMutation.isPending ? "Saving..." : "Save changes"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation modal */}
+      <DeleteConfirmationDialog
+        DialogProps={{
+          open: isDeleteAgentOpen,
+          onOpenChange: setIsDeleteAgentOpen,
+        }}
+        title={"Agent delete"}
+        description={"Delete agent information"}
+        body={
+          <div className="">
+            You are about to delete the international agent{" "}
+            <span className="font-semibold underline">
+              {currentAgent?.name}
+            </span>{" "}
+            and all their associated data permanently, including operations.
+            This cannot be undone.
+          </div>
+        }
+        confirmationText={deleteConfirmationText}
+        updateConfirmationText={(val) => setDeleteConfirmationText(val)}
+        onDelete={() => {
+          handleDeleteAgent(currentAgent?.agentId || "");
+        }}
+        onCancel={() => setIsDeleteAgentOpen(false)}
+        isDeleting={deleteAgentMutation.isPending}
+      />
     </div>
   );
 }

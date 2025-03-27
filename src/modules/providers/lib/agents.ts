@@ -33,8 +33,12 @@ export const getAllAgents = async (): Promise<Agent[]> => {
     // Transform into internal schema
 
     const agents: Agent[] = jsonResponse.map((agent) => ({
-      agent_id: agent?.agent_id || "",
+      agentId: agent?.agent_id || "",
       name: agent?.name || "",
+      contactEmail: agent?.contact_email,
+      contactName: agent?.contact_name,
+      contactPhone: agent?.contact_phone,
+      createdAt: agent?.created_at,
     }));
 
     return agents;
@@ -60,6 +64,9 @@ export const createAgent = async (
     // Transform into backend schema
     const backendPayload: AgentCreateBackend = {
       name: newAgentData?.name,
+      contact_email: newAgentData?.contactEmail,
+      contact_name: newAgentData?.contactName,
+      contact_phone: newAgentData?.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/agents`;
@@ -82,8 +89,12 @@ export const createAgent = async (
 
     // Transform response into internal schema
     const newAgent: Agent = {
-      agent_id: jsonResponse?.agent_id || "",
+      agentId: jsonResponse?.agent_id || "",
       name: jsonResponse?.name || "",
+      contactEmail: jsonResponse?.contact_email,
+      contactName: jsonResponse?.contact_name,
+      contactPhone: jsonResponse?.contact_phone,
+      createdAt: jsonResponse?.created_at,
     };
 
     return newAgent;
@@ -111,6 +122,9 @@ export const updateAgent = async (
     // Transform into backend schema
     const backendPayload: AgentUpdateBackend = {
       name: newAgentData?.name,
+      contact_email: newAgentData?.contactEmail,
+      contact_name: newAgentData?.contactName,
+      contact_phone: newAgentData?.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/agents/${agentId}`;
@@ -133,8 +147,12 @@ export const updateAgent = async (
 
     // Transform response into internal schema
     const updatedAgent: Agent = {
-      agent_id: jsonResponse?.agent_id || "",
+      agentId: jsonResponse?.agent_id || "",
       name: jsonResponse?.name || "",
+      contactEmail: jsonResponse?.contact_email,
+      contactName: jsonResponse?.contact_name,
+      contactPhone: jsonResponse?.contact_phone,
+      createdAt: jsonResponse?.created_at,
     };
 
     return updatedAgent;

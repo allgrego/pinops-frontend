@@ -351,7 +351,9 @@ export default function CarriersPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Carrier Name</Label>
+                <Label htmlFor="name">
+                  Carrier name <span className="text-red-600">*</span>
+                </Label>
                 <Input
                   id="name"
                   value={newCarrierData?.name || ""}
@@ -363,7 +365,9 @@ export default function CarriersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-type">Carrier type</Label>
+                <Label htmlFor="new-type">
+                  Carrier type <span className="text-red-600">*</span>
+                </Label>
 
                 <Select
                   value={newCarrierData?.type || ""}
@@ -427,7 +431,13 @@ export default function CarriersPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateCarrier}>Create</Button>
+              <Button
+                onClick={handleCreateCarrier}
+                disabled={createCarrierMutation.isPending}
+                loading={createCarrierMutation.isPending}
+              >
+                {createCarrierMutation.isPending ? "Creating..." : "Create"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -537,6 +547,7 @@ export default function CarriersPage() {
         </Table>
       </div>
 
+      {/* Details modal */}
       <Dialog
         open={carrierDetailsDialogData.isOpen}
         onOpenChange={carrierDetailsDialogData.setIsOpen}
@@ -628,7 +639,9 @@ export default function CarriersPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Carrier Name</Label>
+              <Label htmlFor="name">
+                Carrier name <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="name"
                 value={editCarrierData?.name || ""}
@@ -640,7 +653,9 @@ export default function CarriersPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-type">Carrier type</Label>
+              <Label htmlFor="new-type">
+                Carrier type <span className="text-red-600">*</span>
+              </Label>
 
               <Select
                 value={editCarrierData?.type || ""}
@@ -718,8 +733,9 @@ export default function CarriersPage() {
             <Button
               onClick={handleEditCarrier}
               disabled={updateCarrierMutation.isPending}
+              loading={updateCarrierMutation.isPending}
             >
-              Save Changes
+              {updateCarrierMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -78,6 +78,7 @@ const DeleteConfirmationDialog: FC<DeleteConfirmationDialogProps> = ({
               confirmationText.trim() !== referenceText.trim() || isDeleting
             }
             variant={"destructive"}
+            loading={isDeleting}
           >
             <Trash />
 
