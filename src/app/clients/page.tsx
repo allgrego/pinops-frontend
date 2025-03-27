@@ -198,7 +198,7 @@ export default function ClientsPage() {
     name: "",
   });
 
-  const updateEditClientData = (editData: Partial<ClientCreate>) => {
+  const updateEditClientData = (editData: ClientUpdate) => {
     setEditClientData((c) => ({
       ...c,
       ...editData,
@@ -666,6 +666,7 @@ export default function ClientsPage() {
             </Button>
             <Button
               variant="destructive"
+              disabled={updateClientMutation.isPending}
               onClick={() => {
                 setIsEditClientOpen(false);
                 openDeleteConfirmationDialog();
@@ -673,7 +674,12 @@ export default function ClientsPage() {
             >
               Delete
             </Button>
-            <Button onClick={handleEditClient}>Save Changes</Button>
+            <Button
+              onClick={handleEditClient}
+              disabled={updateClientMutation.isPending}
+            >
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

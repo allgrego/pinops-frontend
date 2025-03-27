@@ -1,14 +1,14 @@
 import { BACKEND_BASE_URL } from "@/core/setup/routes";
 
 import {
-  Carrier,
-  CarrierBackend,
-  CarrierCreate,
-  CarrierCreateBackend,
-  CarrierType,
+  type Carrier,
+  type CarrierBackend,
+  type CarrierCreate,
+  type CarrierCreateBackend,
+  type CarrierType,
+  type CarrierUpdate,
+  type CarrierUpdateBackend,
   CarrierTypes,
-  CarrierUpdate,
-  CarrierUpdateBackend,
 } from "@/modules/providers/types/carriers.types";
 
 /**
@@ -35,9 +35,13 @@ export const getAllCarriers = async (): Promise<Carrier[]> => {
     // Transform into internal schema
 
     const carriers: Carrier[] = jsonResponse.map((carrier) => ({
-      carrier_id: carrier?.carrier_id || "",
+      carrierId: carrier?.carrier_id || "",
       type: carrier?.type || "",
       name: carrier?.name || "",
+      createdAt: carrier?.created_at,
+      contactEmail: carrier?.contact_email,
+      contactName: carrier?.contact_name,
+      contactPhone: carrier?.contact_phone,
     }));
 
     return carriers;
@@ -64,6 +68,9 @@ export const createCarrier = async (
     const backendPayload: CarrierCreateBackend = {
       name: newCarrierData?.name,
       type: newCarrierData?.type,
+      contact_email: newCarrierData?.contactEmail,
+      contact_name: newCarrierData?.contactName,
+      contact_phone: newCarrierData.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/carriers`;
@@ -86,9 +93,13 @@ export const createCarrier = async (
 
     // Transform response into internal schema
     const newCarrier: Carrier = {
-      carrier_id: jsonResponse?.carrier_id || "",
-      name: jsonResponse?.name || "",
+      carrierId: jsonResponse?.carrier_id || "",
       type: jsonResponse?.type || "",
+      name: jsonResponse?.name || "",
+      createdAt: jsonResponse?.created_at,
+      contactEmail: jsonResponse?.contact_email,
+      contactName: jsonResponse?.contact_name,
+      contactPhone: jsonResponse?.contact_phone,
     };
 
     return newCarrier;
@@ -117,6 +128,9 @@ export const updateCarrier = async (
     const backendPayload: CarrierUpdateBackend = {
       name: newCarrierData?.name,
       type: newCarrierData?.type,
+      contact_email: newCarrierData?.contactEmail,
+      contact_name: newCarrierData?.contactName,
+      contact_phone: newCarrierData?.contactPhone,
     };
 
     const url = `${BACKEND_BASE_URL}/carriers/${carrierId}`;
@@ -139,9 +153,13 @@ export const updateCarrier = async (
 
     // Transform response into internal schema
     const updatedCarrier: Carrier = {
-      carrier_id: jsonResponse?.carrier_id || "",
+      carrierId: jsonResponse?.carrier_id || "",
       type: jsonResponse?.type || "",
       name: jsonResponse?.name || "",
+      createdAt: jsonResponse?.created_at,
+      contactEmail: jsonResponse?.contact_email,
+      contactName: jsonResponse?.contact_name,
+      contactPhone: jsonResponse?.contact_phone,
     };
 
     return updatedCarrier;
@@ -191,6 +209,8 @@ export const getCarrierTypeName = (carrierType: CarrierType): string => {
   const names: Record<CarrierType, string> = {
     [CarrierTypes.AIRLINE]: "Airline",
     [CarrierTypes.SHIPPING_LINE]: "Shipping line",
+    [CarrierTypes.ROAD_FREIGHT_COMPANY]: "Trucking company",
+    [CarrierTypes.RAILWAY_COMPANY]: "Railway company",
   };
 
   return String(names?.[carrierType] || carrierType);

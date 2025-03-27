@@ -1,5 +1,12 @@
 "use client";
 
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
+import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
   Dialog,
@@ -33,8 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/core/components/ui/table";
-import { Textarea } from "@/core/components/ui/textarea";
-import { addComment } from "@/core/lib/data";
+import useDialog from "@/core/hooks/useDialog";
 import {
   createCarrier,
   deleteCarrier,
@@ -43,17 +49,12 @@ import {
   updateCarrier,
 } from "@/modules/providers/lib/carriers";
 import {
-  Carrier,
-  CarrierCreate,
-  CarrierType,
+  type Carrier,
+  type CarrierCreate,
+  type CarrierType,
   CarrierTypes,
-  CarrierUpdate,
+  type CarrierUpdate,
 } from "@/modules/providers/types/carriers.types";
-
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 export default function CarriersPage() {
   /**
@@ -73,9 +74,50 @@ export default function CarriersPage() {
 
   const carriers = carriersQuery.data || [];
 
+  const loadCarriers = async () => {
+    await carriersQuery.refetch();
+  };
+
   /**
-   * - - --  Carrier create
+   * - - - Search and filters logic
    */
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredCarriers = carriers.filter((carrier) =>
+    carrier.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(
+        searchTerm
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+      )
+  );
+
+  /**
+   * - - - - Selected carrier logic (for both details and edit)
+   */
+
+  const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
+
+  /**
+   * - - -  Currier details
+   */
+
+  const carrierDetailsDialogData = useDialog();
+
+  const openDetailsDialog = (carrier: Carrier) => {
+    setCurrentCarrier(carrier);
+
+    carrierDetailsDialogData.open();
+  };
+
+  /**
+   * - - --  Carrier create logic
+   */
+  // Mutation
   const createCarrierMutation = useMutation<Carrier, Error, CarrierCreate>({
     mutationKey: ["createCarrierMutation"],
     mutationFn: async (newData) => await createCarrier(newData),
@@ -84,9 +126,72 @@ export default function CarriersPage() {
     },
   });
 
+  const { isOpen: isNewCarrierOpen, setIsOpen: setIsNewCarrierOpen } =
+    useDialog();
+
+  // Data for new carrier on form in dialog
+  const [newCarrierData, setNewCarrierData] = useState<CarrierCreate>({
+    name: "",
+    type: CarrierTypes.SHIPPING_LINE,
+    contactEmail: null,
+    contactName: null,
+    contactPhone: null,
+  });
+
+  const resetNewCarrierData = () => {
+    setNewCarrierData({
+      name: "",
+      type: CarrierTypes.SHIPPING_LINE,
+      contactEmail: null,
+      contactName: null,
+      contactPhone: null,
+    });
+  };
+
+  const updateNewCarrierData = (newData: Partial<CarrierCreate>) => {
+    setNewCarrierData((c) => ({
+      ...c,
+      ...newData,
+    }));
+  };
+
+  const handleCreateCarrier = async () => {
+    // TODO Validate all data
+    const newCarrierName = String(newCarrierData?.name || "").trim();
+
+    if (!newCarrierName) {
+      toast("Carrier name is required");
+      return;
+    }
+
+    const newCarrierType = (newCarrierData?.type as CarrierType) || null;
+
+    if (!newCarrierType) {
+      toast("Carrier type is required");
+      return;
+    }
+
+    const newCarrier = await createCarrierMutation.mutateAsync({
+      name: newCarrierName,
+      type: newCarrierType,
+      contactEmail: newCarrierData?.contactEmail || null,
+      contactName: newCarrierData?.contactName || null,
+      contactPhone: newCarrierData?.contactPhone || null,
+    });
+
+    console.log("newCarrier", newCarrier);
+
+    toast("The carrier has been created successfully.");
+
+    resetNewCarrierData();
+    setIsNewCarrierOpen(false);
+    await loadCarriers();
+  };
+
   /**
-   * - - --  Carrier update
+   * - - --  Carrier update logic
    */
+  // Mutation
   const updateCarrierMutation = useMutation<
     Carrier,
     Error,
@@ -100,9 +205,76 @@ export default function CarriersPage() {
     },
   });
 
+  const { isOpen: isEditCarrierOpen, setIsOpen: setIsEditCarrierOpen } =
+    useDialog();
+
+  const [editCarrierData, setEditCarrierData] = useState<CarrierUpdate>({
+    name: "",
+  });
+
+  const updateEditCarrierData = (editData: CarrierUpdate) => {
+    setEditCarrierData((c) => ({
+      ...c,
+      ...editData,
+    }));
+  };
+
+  const handleEditCarrier = async () => {
+    // TODO validate data
+    const editCarrierName = editCarrierData?.name?.trim();
+
+    const editCarrierType = editCarrierData?.type;
+
+    if (!editCarrierName) {
+      toast("Carrier name is required");
+      return;
+    }
+
+    if (!editCarrierType) {
+      toast("Carrier type is required");
+      return;
+    }
+
+    if (!currentCarrier) {
+      toast("Unable to get carrier data");
+      return;
+    }
+
+    const updatedCarrier = await updateCarrierMutation.mutateAsync({
+      carrierId: currentCarrier.carrierId,
+      data: {
+        name: editCarrierName,
+        type: editCarrierData?.type,
+        contactEmail: editCarrierData?.contactEmail || null,
+        contactName: editCarrierData?.contactName || null,
+        contactPhone: editCarrierData?.contactPhone || null,
+      },
+    });
+
+    toast(`The carrier ${updatedCarrier?.name} has been updated successfully.`);
+
+    setIsEditCarrierOpen(false);
+    await loadCarriers();
+  };
+
+  const openEditDialog = (carrier: Carrier) => {
+    setCurrentCarrier(carrier);
+    setEditCarrierData({
+      name: carrier?.name,
+      type: carrier?.type,
+      contactEmail: carrier?.contactEmail,
+      contactName: carrier?.contactName,
+      contactPhone: carrier?.contactPhone,
+    });
+
+    setIsEditCarrierOpen(true);
+  };
+
   /**
-   * - - --  Client delete
+   * - - --  Carrier delete logic
    */
+
+  // Mutation
   const deleteCarrierMutation = useMutation<boolean, Error, string>({
     mutationKey: ["deleteCarrierMutation"],
     mutationFn: async (carrierId) => await deleteCarrier(carrierId),
@@ -111,60 +283,28 @@ export default function CarriersPage() {
     },
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isNewCarrierOpen, setIsNewCarrierOpen] = useState(false);
-  const [isEditCarrierOpen, setIsEditCarrierOpen] = useState(false);
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
-  const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
-  const [newCarrierName, setNewCarrierName] = useState("");
-  const [newCarrierType, setNewCarrierType] = useState("");
-  const [editCarrierName, setEditCarrierName] = useState("");
-  const [editCarrierType, setEditCarrierType] = useState("");
-  const [comment, setComment] = useState("");
+  const { isOpen: isDeleteCarrierOpen, setIsOpen: setIsDeleteCarrierOpen } =
+    useDialog();
 
-  const loadCarriers = async () => {
-    await carriersQuery.refetch();
-  };
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState<string>("");
 
-  const handleCreateCarrier = async () => {
-    if (!newCarrierName.trim()) return;
-
-    const newCarrier = await createCarrierMutation.mutateAsync({
-      name: newCarrierName,
-      type: newCarrierType as CarrierType,
-    });
-
-    console.log("newCarrier", newCarrier);
-
-    toast("The carrier has been created successfully.");
-
-    setNewCarrierName("");
-    setNewCarrierType("");
-    setIsNewCarrierOpen(false);
-
-    await loadCarriers();
-  };
-
-  const handleEditCarrier = async () => {
-    if (!currentCarrier || !editCarrierName.trim()) return;
-
-    await updateCarrierMutation.mutateAsync({
-      carrierId: currentCarrier.carrier_id,
-      data: {
-        name: editCarrierName,
-        type: editCarrierType as CarrierType,
-      },
-    });
-
-    toast("The carrier has been updated successfully.");
-
-    setIsEditCarrierOpen(false);
-    await loadCarriers();
+  const openDeleteConfirmationDialog = () => {
+    setDeleteConfirmationText("");
+    setIsDeleteCarrierOpen(true);
   };
 
   const handleDeleteCarrier = async (id: string) => {
+    if (!id) {
+      toast("Unable to delete carrier. No ID found");
+      return;
+    }
+
     const success = await deleteCarrierMutation.mutateAsync(id);
+
     if (success) {
+      // Close modal
+      setIsDeleteCarrierOpen(false);
       toast("The carrier has been deleted successfully.");
       await loadCarriers();
     } else {
@@ -172,37 +312,20 @@ export default function CarriersPage() {
     }
   };
 
-  const handleAddComment = () => {
-    if (!currentCarrier || !comment.trim()) return;
-
-    const newComment = addComment(
-      "carrier",
-      currentCarrier.carrier_id,
-      comment
-    );
-    if (newComment) {
-      toast("Your comment has been added successfully.");
-      setComment("");
-      setIsCommentOpen(false);
-      loadCarriers();
-    } else {
-      toast("Failed to add comment.");
+  const getCarrierTypeStyles = (type: string) => {
+    switch (type) {
+      case CarrierTypes.AIRLINE:
+        return "bg-blue-100 text-blue-800";
+      case CarrierTypes.SHIPPING_LINE:
+        return "bg-purple-100 text-purple-800";
+      case CarrierTypes.ROAD_FREIGHT_COMPANY:
+        return "bg-yellow-100 text-yellow-800";
+      case CarrierTypes.RAILWAY_COMPANY:
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
-
-  const openEditDialog = (carrier: Carrier) => {
-    setCurrentCarrier(carrier);
-    setEditCarrierName(carrier.name);
-    setEditCarrierType(carrier.type);
-    setIsEditCarrierOpen(true);
-  };
-
-  const filteredCarriers = carriers.filter((carrier) =>
-    carrier.name
-      .normalize("NFD")
-      .toLowerCase()
-      .includes(searchTerm.normalize("NFD").toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -231,8 +354,10 @@ export default function CarriersPage() {
                 <Label htmlFor="name">Carrier Name</Label>
                 <Input
                   id="name"
-                  value={newCarrierName}
-                  onChange={(e) => setNewCarrierName(e.target.value)}
+                  value={newCarrierData?.name || ""}
+                  onChange={(e) =>
+                    updateNewCarrierData({ name: e.target.value })
+                  }
                   placeholder="Enter carrier name"
                 />
               </div>
@@ -241,8 +366,10 @@ export default function CarriersPage() {
                 <Label htmlFor="new-type">Carrier type</Label>
 
                 <Select
-                  value={newCarrierType}
-                  onValueChange={(value) => setNewCarrierType(value)}
+                  value={newCarrierData?.type || ""}
+                  onValueChange={(value) =>
+                    updateNewCarrierData({ type: value as CarrierType })
+                  }
                 >
                   <SelectTrigger id="new-type">
                     <SelectValue placeholder="Select type" />
@@ -255,6 +382,42 @@ export default function CarriersPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              {/* Contact */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contactName">Contact name</Label>
+                  <Input
+                    id="contactName"
+                    value={newCarrierData?.contactName || ""}
+                    onChange={(e) =>
+                      updateNewCarrierData({ contactName: e.target.value })
+                    }
+                    placeholder="Teresa Torres"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactPhone">Contact phone</Label>
+                  <Input
+                    id="contactPhone"
+                    value={newCarrierData?.contactPhone || ""}
+                    onChange={(e) =>
+                      updateNewCarrierData({ contactPhone: e.target.value })
+                    }
+                    placeholder="+12 456 78 90"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact email</Label>
+                <Input
+                  id="contactEmail"
+                  value={newCarrierData?.contactEmail || ""}
+                  onChange={(e) =>
+                    updateNewCarrierData({ contactEmail: e.target.value })
+                  }
+                  placeholder="carrier@email.com"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -289,12 +452,21 @@ export default function CarriersPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>ID</TableHead>
+              <TableHead>Contact</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCarriers.length === 0 ? (
+            {carriersQuery.isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : filteredCarriers.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={3}
@@ -305,10 +477,26 @@ export default function CarriersPage() {
               </TableRow>
             ) : (
               filteredCarriers.map((carrier) => (
-                <TableRow key={carrier.carrier_id}>
-                  <TableCell className="font-medium">{carrier.name}</TableCell>
-                  <TableCell>{getCarrierTypeName(carrier.type)}</TableCell>
-                  <TableCell className="text-xs">{carrier.carrier_id}</TableCell>
+                <TableRow key={carrier.carrierId}>
+                  <TableCell
+                    className="font-medium"
+                    onClick={() => openDetailsDialog(carrier)}
+                  >
+                    {carrier?.name || "-"}
+                  </TableCell>
+                  <TableCell onClick={() => openDetailsDialog(carrier)}>
+                    <Badge className={getCarrierTypeStyles(carrier?.type)}>
+                      {getCarrierTypeName(carrier?.type || "") || "undefined"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell
+                    className=""
+                    onClick={() => openDetailsDialog(carrier)}
+                  >
+                    {carrier?.contactName || "-"}
+                  </TableCell>
+
+                  {/* Actions */}
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -319,21 +507,22 @@ export default function CarriersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
+                          onClick={() => openDetailsDialog(carrier)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           onClick={() => openEditDialog(carrier)}
                         >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        {/* <DropdownMenuItem
-                          onClick={() => openCommentDialog(carrier)}
-                        >
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Add Comment
-                        </DropdownMenuItem> */}
                         <DropdownMenuItem
-                          onClick={() =>
-                            handleDeleteCarrier(carrier.carrier_id)
-                          }
+                          onClick={() => {
+                            setCurrentCarrier(carrier);
+                            openDeleteConfirmationDialog();
+                          }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -348,6 +537,88 @@ export default function CarriersPage() {
         </Table>
       </div>
 
+      <Dialog
+        open={carrierDetailsDialogData.isOpen}
+        onOpenChange={carrierDetailsDialogData.setIsOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Carrier details</DialogTitle>
+            <DialogDescription className="text-xs">
+              View carrier information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Carrier name</Label>
+              <div>{currentCarrier?.name || "-"}</div>
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+
+              <Badge
+                className={getCarrierTypeStyles(currentCarrier?.type || "")}
+              >
+                {getCarrierTypeName(currentCarrier?.type as CarrierType) ||
+                  "undefined"}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Contact name</Label>
+                <div>{currentCarrier?.contactName || "-"}</div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <div>{currentCarrier?.contactPhone || "-"}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Contact email</Label>
+              <div>{currentCarrier?.contactEmail || "-"}</div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 text-xs mt-6">
+              <div className="space-y-2">
+                <Label>Internal ID</Label>
+                <div className="whitespace-nowrap">
+                  {currentCarrier?.carrierId || "-"}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Created at</Label>
+                <div className="whitespace-nowrap">
+                  {currentCarrier?.createdAt || "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (!currentCarrier) {
+                  console.error(
+                    "No selected carrier found. Unable to open edit dialog after details dialog"
+                  );
+                  return;
+                }
+
+                // close details dialog
+                carrierDetailsDialogData.close();
+
+                openEditDialog(currentCarrier);
+              }}
+            >
+              Edit
+            </Button>
+            <Button variant="outline" onClick={carrierDetailsDialogData.close}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Carrier Dialog */}
       <Dialog open={isEditCarrierOpen} onOpenChange={setIsEditCarrierOpen}>
         <DialogContent>
@@ -357,22 +628,27 @@ export default function CarriersPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Carrier Name</Label>
+              <Label htmlFor="name">Carrier Name</Label>
               <Input
-                id="edit-name"
-                value={editCarrierName}
-                onChange={(e) => setEditCarrierName(e.target.value)}
+                id="name"
+                value={editCarrierData?.name || ""}
+                onChange={(e) =>
+                  updateEditCarrierData({ name: e.target.value })
+                }
+                placeholder="Enter carrier name"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-type">Carrier type</Label>
+              <Label htmlFor="new-type">Carrier type</Label>
 
               <Select
-                value={editCarrierType}
-                onValueChange={(value) => setEditCarrierType(value)}
+                value={editCarrierData?.type || ""}
+                onValueChange={(value) =>
+                  updateEditCarrierData({ type: value as CarrierType })
+                }
               >
-                <SelectTrigger id="edit-type">
+                <SelectTrigger id="new-type">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -384,26 +660,44 @@ export default function CarriersPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
+            {/* Contact */}
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label>Comments</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {currentCarrier.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p>{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
+                <Label htmlFor="contactName">Contact name</Label>
+                <Input
+                  id="contactName"
+                  value={editCarrierData?.contactName || ""}
+                  onChange={(e) =>
+                    updateEditCarrierData({ contactName: e.target.value })
+                  }
+                  placeholder="Teresa Torres"
+                />
               </div>
-            )} */}
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <Input
+                  id="contactPhone"
+                  value={editCarrierData?.contactPhone || ""}
+                  onChange={(e) =>
+                    updateEditCarrierData({ contactPhone: e.target.value })
+                  }
+                  placeholder="+12 456 78 90"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Contact email</Label>
+              <Input
+                id="contactEmail"
+                value={editCarrierData?.contactEmail || ""}
+                onChange={(e) =>
+                  updateEditCarrierData({ contactEmail: e.target.value })
+                }
+                placeholder="carrier@email.com"
+              />
+            </div>
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -411,58 +705,51 @@ export default function CarriersPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleEditCarrier}>Save Changes</Button>
+            <Button
+              variant="destructive"
+              disabled={updateCarrierMutation.isPending}
+              onClick={() => {
+                setIsEditCarrierOpen(false);
+                openDeleteConfirmationDialog();
+              }}
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={handleEditCarrier}
+              disabled={updateCarrierMutation.isPending}
+            >
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Comment Dialog */}
-      <Dialog open={isCommentOpen} onOpenChange={setIsCommentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Comment</DialogTitle>
-            <DialogDescription>
-              Add a comment to {currentCarrier?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="comment">Comment</Label>
-              <Textarea
-                id="comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Enter your comment"
-                rows={4}
-              />
-            </div>
-            {/* {currentCarrier?.comments && currentCarrier.comments.length > 0 && (
-              <div className="space-y-2">
-                <Label>Previous Comments</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {currentCarrier.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p>{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )} */}
+      <DeleteConfirmationDialog
+        DialogProps={{
+          open: isDeleteCarrierOpen,
+          onOpenChange: setIsDeleteCarrierOpen,
+        }}
+        title={"Carrier delete"}
+        description={"Delete carrier information"}
+        body={
+          <div className="">
+            You are about to delete the carrier{" "}
+            <span className="font-semibold underline">
+              {currentCarrier?.name}
+            </span>{" "}
+            and all their associated data permanently, including operations.
+            This cannot be undone.
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCommentOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddComment}>Add Comment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        }
+        confirmationText={deleteConfirmationText}
+        updateConfirmationText={(val) => setDeleteConfirmationText(val)}
+        onDelete={() => {
+          handleDeleteCarrier(currentCarrier?.carrierId || "");
+        }}
+        onCancel={() => setIsDeleteCarrierOpen(false)}
+        isDeleting={deleteCarrierMutation.isPending}
+      />
     </div>
   );
 }
