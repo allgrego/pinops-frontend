@@ -1,3 +1,14 @@
+# None source directories must be cast out
 .git
 .next
+.gitignore
+.vs
+.dockerignore
+.storybook
+build
 node_modules
+k8s
+Jenkinsfile
+sonar-project.properties
+.env
+.env.*
