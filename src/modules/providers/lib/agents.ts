@@ -193,7 +193,7 @@ export const deleteAgent = async (agentId: string): Promise<boolean> => {
 
     return jsonResponse?.ok || false;
   } catch (error) {
-    console.error("Failure updating a Agent", error);
+    console.error("Failure deleting an agent", error);
     return Promise.reject(`${error}`);
   }
 };

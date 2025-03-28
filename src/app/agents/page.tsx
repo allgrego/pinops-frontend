@@ -309,7 +309,9 @@ export default function AgentsPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Agent Name</Label>
+                <Label htmlFor="name">
+                  Agent name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="name"
                   value={newAgentData?.name || ""}
@@ -551,7 +553,9 @@ export default function AgentsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Agent Name</Label>
+              <Label htmlFor="name">
+                Agent name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="name"
                 value={editAgentData?.name || ""}

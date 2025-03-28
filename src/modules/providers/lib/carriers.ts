@@ -200,7 +200,7 @@ export const deleteCarrier = async (carrierId: string): Promise<boolean> => {
 
     return jsonResponse?.ok || false;
   } catch (error) {
-    console.error("Failure updating a carrier", error);
+    console.error("Failure deleting a carrier", error);
     return Promise.reject(`${error}`);
   }
 };

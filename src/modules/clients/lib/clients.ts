@@ -198,7 +198,7 @@ export const deleteClient = async (clientId: string): Promise<boolean> => {
 
     return jsonResponse?.ok || false;
   } catch (error) {
-    console.error("Failure updating a client", error);
+    console.error("Failure deleting a client", error);
     return Promise.reject(`${error}`);
   }
 };
