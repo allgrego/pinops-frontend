@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,6 @@ import { addComment } from "@/core/lib/data";
 import {
   createClient,
   deleteClient,
-  getAllClients,
   updateClient,
 } from "@/modules/clients/lib/clients";
 import {
@@ -46,24 +45,18 @@ import {
   ClientCreate,
   ClientUpdate,
 } from "@/modules/clients/types/clients";
+import useClients from "@/modules/hooks/useClients";
 
 export default function ClientsPage() {
   /**
    * - - - Clients fetching
    */
-  const clientsQuery = useQuery<Client[]>({
-    queryKey: ["ClientsQuery"],
-    queryFn: async () => {
-      try {
-        return await getAllClients();
-      } catch (error) {
-        console.error("Failure fetching clients", error);
-        return Promise.reject(`${error}`);
-      }
-    },
-  });
-
-  const clients = clientsQuery.data || [];
+  const {
+    clients,
+    query: clientsQuery,
+    isError: clientsIsError,
+    error: clientsError,
+  } = useClients();
 
   const loadClients = async () => {
     await clientsQuery.refetch();
@@ -444,6 +437,16 @@ export default function ClientsPage() {
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading...
+                </TableCell>
+              </TableRow>
+            ) : clientsIsError ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Unable to get clients (Details:{" "}
+                  {String(clientsError || "unknown")})
                 </TableCell>
               </TableRow>
             ) : filteredClients.length === 0 ? (

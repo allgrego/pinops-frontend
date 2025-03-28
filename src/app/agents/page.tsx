@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -33,10 +33,10 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import useDialog from "@/core/hooks/useDialog";
+import useAgents from "@/modules/providers/hooks/useAgents";
 import {
   createAgent,
   deleteAgent,
-  getAllAgents,
   updateAgent,
 } from "@/modules/providers/lib/agents";
 import {
@@ -49,19 +49,12 @@ export default function AgentsPage() {
   /**
    * - - - Agents fetching
    */
-  const agentsQuery = useQuery<Agent[]>({
-    queryKey: ["agentsQuery"],
-    queryFn: async () => {
-      try {
-        return await getAllAgents();
-      } catch (error) {
-        console.error("Failure fetching agents", error);
-        return Promise.reject(`${error}`);
-      }
-    },
-  });
-
-  const agents = agentsQuery.data || [];
+  const {
+    agents,
+    query: agentsQuery,
+    error: agentsError,
+    isError: agentsIsError,
+  } = useAgents();
 
   const loadAgents = async () => {
     await agentsQuery.refetch();
@@ -406,6 +399,16 @@ export default function AgentsPage() {
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading...
+                </TableCell>
+              </TableRow>
+            ) : agentsIsError ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Unable to get agents (Details:{" "}
+                  {String(agentsError || "unknown")})
                 </TableCell>
               </TableRow>
             ) : filteredAgents.length === 0 ? (

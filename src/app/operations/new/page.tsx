@@ -1,16 +1,29 @@
 "use client";
 
-import type React from "react";
-
+import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/core/components/ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/core/components/ui/command";
 import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/core/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -18,131 +31,162 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/core/components/ui/select";
+import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
+import { cn } from "@/core/lib/utils";
+import useClients from "@/modules/hooks/useClients";
 import {
-  createOperation,
-  getAgents,
-  getCarriers,
-  getClients,
-  statuses,
-  type Agent,
-  type Carrier,
-  type Client,
-} from "@/core/lib/data";
-import { ArrowLeft } from "lucide-react";
+  allCargoUnitTypes,
+  allOperationTypes,
+  allVolumeUnits,
+  allWeightUnits,
+  getCargoUnitTypesName,
+  getOpsTypeName,
+  getVolumeUnitName,
+  getWeightUnitName,
+} from "@/modules/ops_files/lib/ops_files";
+import {
+  OperationStatuses,
+  OperationTypes,
+  OpsFileCreate,
+} from "@/modules/ops_files/types/ops_files.types";
+import useAgents from "@/modules/providers/hooks/useAgents";
+import useCarriers from "@/modules/providers/hooks/useCarriers";
+import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-export default function NewOperationPage() {
-  const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
+type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
+  comment?: string;
+};
 
-  const [formData, setFormData] = useState({
-    origin_location: "",
-    origin_country: "",
-    destination_location: "",
-    destination_country: "",
-    estimated_time_departure: "",
-    actual_time_departure: "",
-    estimated_time_arrival: "",
-    actual_time_arrival: "",
-    cargo_description: "",
-    units_quantity: "",
-    units_type: "",
-    gross_weight_value: "",
-    gross_weight_unit: "Kg",
-    volume_value: "",
-    volume_unit: "m³",
-    master_transport_doc: "",
-    house_transport_doc: "",
-    incoterm: "CIF",
-    modality: "FCL",
-    voyage: "",
-    client_id: "",
-    status_id: "1",
-    carrier_id: "",
-    agent_id: "",
+const CUSTOM_UNIT_KEY = "other";
+const NONE_SELECT_OPTION = "none";
+
+export default function NewOperationPage() {
+  // const router = useRouter();
+
+  const clientsData = useClients();
+  const { clients } = clientsData;
+
+  const carriersData = useCarriers();
+  const { carriers } = carriersData;
+
+  const agentsData = useAgents();
+  const { agents } = agentsData;
+
+  const [customWeightUnit, setCustomWeightUnit] = useState("");
+  const [customVolumeUnit, setCustomVolumeUnit] = useState("");
+  const [customUnitsType, setCustomUnitsType] = useState("");
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+
+  const formData = useForm<NewOperationFormData>({
+    defaultValues: {
+      opType: OperationTypes.MARITIME,
+      statusId: OperationStatuses.OPENED, // Always opened
+      carrierId: null,
+    },
   });
 
-  useEffect(() => {
-    setClients(getClients());
-    setCarriers(getCarriers());
-    setAgents(getAgents());
-  }, []);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const [unitsType, volumeUnit, grossWeightUnit, operationType, incoterm] =
+    formData.watch([
+      "unitsType",
+      "volumeUnit",
+      "grossWeightUnit",
+      "opType",
+      "incoterm",
+    ]);
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    formData.setValue(name as keyof NewOperationFormData, value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleAgent = (agentId: string) => {
+    setSelectedAgents((prev) =>
+      prev.includes(agentId)
+        ? prev.filter((id) => id !== agentId)
+        : [...prev, agentId]
+    );
+  };
+
+  const handleSubmit: SubmitHandler<NewOperationFormData> = (data, e) => {
+    e?.preventDefault();
 
     try {
-      // Find the selected client, carrier, agent
-      const client = clients.find((c) => c.client_id === formData.client_id);
-      const carrier = formData.carrier_id
-        ? carriers.find((c) => c.carrier_id === formData.carrier_id)
-        : null;
-      const agent = formData.agent_id
-        ? agents.find((a) => a.agent_id === formData.agent_id)
-        : null;
-      const status = statuses.find(
-        (s) => s.status_id.toString() === formData.status_id
-      );
+      toast("Not yet implemented");
 
-      if (!client || !status) {
-        toast("Client and status are required.");
-        return;
-      }
+      return;
+      // Find the selected client, carrier, agents
+      // const client = clients.find((c) => c.clientId === data.clientId);
+      // const carrier = data.carrierId
+      //   ? carriers.find((c) => c.carrierId === data.carrierId)
+      //   : null;
+
+      // const selectedAgentObjects = agents.filter((a) =>
+      //   selectedAgents.includes(a.agentId)
+      // );
+
+      // const status = statuses.find((s) => s.status_id === data.statusId);
+
+      // if (!client || !status) {
+      //   toast("Error", {
+      //     description: "Client and status are required.",
+      //   });
+      //   return;
+      // }
+
+      // // Determine the final units
+      // const finalWeightUnit =
+      //   data.grossWeightUnit === CUSTOM_UNIT_KEY
+      //     ? customWeightUnit
+      //     : data.grossWeightUnit;
+      // const finalVolumeUnit =
+      //   data.volumeUnit === CUSTOM_UNIT_KEY
+      //     ? customVolumeUnit
+      //     : data.volumeUnit;
+      // const finalUnitsType =
+      //   data.unitsType === CUSTOM_UNIT_KEY ? customUnitsType : data.unitsType;
 
       // Create the operation
-      const newOperation = createOperation({
-        origin_location: formData.origin_location,
-        origin_country: formData.origin_country,
-        destination_location: formData.destination_location,
-        destination_country: formData.destination_country,
-        estimated_time_departure: formData.estimated_time_departure || null,
-        actual_time_departure: formData.actual_time_departure || null,
-        estimated_time_arrival: formData.estimated_time_arrival || null,
-        actual_time_arrival: formData.actual_time_arrival || null,
-        cargo_description: formData.cargo_description,
-        units_quantity: formData.units_quantity
-          ? Number(formData.units_quantity)
-          : null,
-        units_type: formData.units_type || null,
-        gross_weight_value: formData.gross_weight_value
-          ? Number(formData.gross_weight_value)
-          : null,
-        gross_weight_unit: formData.gross_weight_unit || null,
-        volume_value: formData.volume_value
-          ? Number(formData.volume_value)
-          : null,
-        volume_unit: formData.volume_unit || null,
-        master_transport_doc: formData.master_transport_doc || null,
-        house_transport_doc: formData.house_transport_doc || null,
-        incoterm: formData.incoterm || null,
-        modality: formData.modality || null,
-        voyage: formData.voyage || null,
-        client,
-        status,
-        carrier: carrier || null,
-        agent: agent || null,
-      });
+      // const newOperation = createOperation({
+      //   origin_location: data.origin_location,
+      //   origin_country: data.origin_country,
+      //   destination_location: data.destination_location,
+      //   destination_country: data.destination_country,
+      //   estimated_time_departure: data.estimated_time_departure || null,
+      //   actual_time_departure: data.actual_time_departure || null,
+      //   estimated_time_arrival: data.estimated_time_arrival || null,
+      //   actual_time_arrival: data.actual_time_arrival || null,
+      //   cargo_description: data.cargo_description,
+      //   units_quantity: data.units_quantity
+      //     ? Number(data.units_quantity)
+      //     : null,
+      //   unitsType: finalUnitsType || null,
+      //   gross_weight_value: data.gross_weight_value
+      //     ? Number(data.gross_weight_value)
+      //     : null,
+      //   gross_weight_unit: finalWeightUnit || null,
+      //   volume_value: data.volume_value ? Number(data.volume_value) : null,
+      //   volumeUnit: finalVolumeUnit || null,
+      //   master_transport_doc: data.master_transport_doc || null,
+      //   house_transport_doc: data.house_transport_doc || null,
+      //   incoterm: data.incoterm || null,
+      //   modality: data.modality || null,
+      //   voyage: data.voyage || null,
+      //   operation_type: data.operation_type || null,
+      //   client,
+      //   status,
+      //   carrier,
+      //   agents: selectedAgentObjects,
+      // });
 
-      toast("The operation has been created successfully.");
+      // const newOperation = { op_id: "123" };
 
-      router.push(`/operations/${newOperation.op_id}`);
+      // toast("The operation has been created successfully.");
+
+      // router.push(`/operations/${newOperation.op_id}`);
     } catch (error) {
       toast(`Failed to create the operation. ${error}`);
     }
@@ -159,126 +203,353 @@ export default function NewOperationPage() {
         <h1 className="text-2xl font-bold tracking-tight">New Operation</h1>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={formData.handleSubmit(handleSubmit)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
+
+              <CardDescription className="text-xs">
+                Not required data could be edited later
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="origin_location">Origin Location</Label>
-                  <Input
-                    id="origin_location"
-                    name="origin_location"
-                    value={formData.origin_location}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="origin_country">Origin Country</Label>
-                  <Input
-                    id="origin_country"
-                    name="origin_country"
-                    value={formData.origin_country}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientId">
+                  Client <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  control={formData.control}
+                  name="clientId"
+                  render={({ field }) => {
+                    return (
+                      <>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={
+                            clientsData.isLoading || clientsData.isError
+                          }
+                        >
+                          <SelectTrigger
+                            id={field.name}
+                            disabled={
+                              clientsData.isLoading || clientsData.isError
+                            }
+                          >
+                            <SelectValue placeholder="Select client" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem
+                                value={client.clientId}
+                                key={client.clientId}
+                              >
+                                {client.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    );
+                  }}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="destination_location">
-                    Destination Location
+                <div className="space-y-2 col-span-1">
+                  <Label htmlFor="operation_type">
+                    Type <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="destination_location"
-                    name="destination_location"
-                    value={formData.destination_location}
-                    onChange={handleChange}
-                    required
+                  <Controller
+                    control={formData.control}
+                    name="opType"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) =>
+                          handleSelectChange(field.name, value)
+                        }
+                      >
+                        <SelectTrigger id="operation_type">
+                          <SelectValue placeholder="Select operation type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allOperationTypes.map((type) => (
+                            <SelectItem value={type} key={type}>
+                              {getOpsTypeName(type)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="destination_country">
-                    Destination Country
-                  </Label>
+                  <Label htmlFor="modality">Modality</Label>
                   <Input
-                    id="destination_country"
-                    name="destination_country"
-                    value={formData.destination_country}
-                    onChange={handleChange}
-                    required
+                    id="modality"
+                    {...formData.register("modality")}
+                    placeholder="FCL, LCL, D2D"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cargo_description">Cargo Description</Label>
+                <Label htmlFor="cargo_description">
+                  Cargo description <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="cargo_description"
-                  name="cargo_description"
-                  value={formData.cargo_description}
-                  onChange={handleChange}
+                  {...formData.register("cargoDescription", { required: true })}
                   required
                 />
               </div>
 
+              <Separator className="my-4" />
+
+              <div className="space-y-2">
+                <Label>International agents</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedAgents.length > 0
+                        ? `${selectedAgents.length} agent${
+                            selectedAgents.length > 1 ? "s" : ""
+                          } selected`
+                        : "Select agents..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search agents..." />
+                      <CommandList>
+                        <CommandEmpty>No agent found.</CommandEmpty>
+                        <CommandGroup>
+                          {agents.map((agent) => (
+                            <CommandItem
+                              key={agent.agentId}
+                              value={agent.agentId}
+                              onSelect={() => toggleAgent(agent.agentId)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedAgents.includes(agent.agentId)
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {agent.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedAgents.length > 0 && (
+                  <div className="mt-2">
+                    <div className="flex flex-wrap gap-2">
+                      {selectedAgents.map((agentId) => {
+                        const agent = agents.find((a) => a.agentId === agentId);
+                        return agent ? (
+                          <Badge
+                            key={agent.agentId}
+                            variant="secondary"
+                            className="flex items-center gap-1 cursor-default"
+                          >
+                            {agent.name}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-transparent cursor-pointer"
+                              onClick={() => toggleAgent(agent.agentId)}
+                            >
+                              <X className="h-3 w-3" />
+                              <span className="sr-only">Remove</span>
+                            </Button>
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="carrierId">Carrier</Label>
+                <Controller
+                  control={formData.control}
+                  name="carrierId"
+                  render={({ field }) => {
+                    return (
+                      <>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={
+                            carriersData.isLoading || carriersData.isError
+                          }
+                        >
+                          <SelectTrigger
+                            id={field.name}
+                            disabled={
+                              carriersData.isLoading || carriersData.isError
+                            }
+                          >
+                            <SelectValue placeholder="Select carrier" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value={NONE_SELECT_OPTION}>
+                              None
+                            </SelectItem>
+                            {carriers.map((carrier) => (
+                              <SelectItem
+                                value={carrier.carrierId}
+                                key={carrier.carrierId}
+                              >
+                                {carrier.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    );
+                  }}
+                />
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Cargo specifications */}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="units_quantity">Units Quantity</Label>
+                  <Label htmlFor="units_quantity">Units quantity</Label>
                   <Input
                     id="units_quantity"
-                    name="units_quantity"
                     type="number"
-                    value={formData.units_quantity}
-                    onChange={handleChange}
+                    {...formData.register("unitsQuantity")}
+                    placeholder="12"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="units_type">Units Type</Label>
-                  <Input
-                    id="units_type"
-                    name="units_type"
-                    value={formData.units_type}
-                    onChange={handleChange}
-                    placeholder="pallets, containers, boxes..."
+                  <Label htmlFor="unitsType">Units type</Label>
+                  <Controller
+                    control={formData.control}
+                    name="unitsType"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit type" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {allCargoUnitTypes.map((unitType) => (
+                                <SelectItem value={unitType} key={unitType}>
+                                  {getCargoUnitTypesName(unitType)}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </>
+                      );
+                    }}
                   />
+                  {/* Custom unit input */}
+                  {unitsType === CUSTOM_UNIT_KEY && (
+                    <Input
+                      className="mt-2"
+                      placeholder="Enter unit type"
+                      value={customUnitsType}
+                      onChange={(e) => setCustomUnitsType(e.target.value)}
+                    />
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gross_weight_value">Gross Weight</Label>
+                  <Label htmlFor="gross_weight_value">Gross weight</Label>
                   <Input
                     id="gross_weight_value"
-                    name="gross_weight_value"
+                    {...formData.register("grossWeightValue")}
+                    placeholder="12.03"
                     type="number"
                     step="0.01"
-                    value={formData.gross_weight_value}
-                    onChange={handleChange}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gross_weight_unit">Weight Unit</Label>
-                  <Select
-                    value={formData.gross_weight_unit}
-                    onValueChange={(value) =>
-                      handleSelectChange("gross_weight_unit", value)
-                    }
-                  >
-                    <SelectTrigger id="gross_weight_unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Kg">Kg</SelectItem>
-                      <SelectItem value="Lb">Lb</SelectItem>
-                      <SelectItem value="Ton">Ton</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="gross_weight_unit">Weight unit</Label>
+
+                  <Controller
+                    control={formData.control}
+                    name="grossWeightUnit"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {allWeightUnits.map((unit) => (
+                                <SelectItem value={unit} key={unit}>
+                                  {getWeightUnitName(unit)}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </>
+                      );
+                    }}
+                  />
+                  {/* Custom unit input */}
+                  {grossWeightUnit === CUSTOM_UNIT_KEY && (
+                    <Input
+                      className="mt-2"
+                      placeholder="Enter unit"
+                      value={customWeightUnit}
+                      onChange={(e) => setCustomWeightUnit(e.target.value)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -287,29 +558,59 @@ export default function NewOperationPage() {
                   <Label htmlFor="volume_value">Volume</Label>
                   <Input
                     id="volume_value"
-                    name="volume_value"
+                    {...formData.register("volumeValue")}
                     type="number"
-                    step="0.01"
-                    value={formData.volume_value}
-                    onChange={handleChange}
+                    step="0.001"
+                    placeholder="2.123"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="volume_unit">Volume Unit</Label>
-                  <Select
-                    value={formData.volume_unit}
-                    onValueChange={(value) =>
-                      handleSelectChange("volume_unit", value)
-                    }
-                  >
-                    <SelectTrigger id="volume_unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="m³">m³</SelectItem>
-                      <SelectItem value="ft³">ft³</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="volumeUnit">Volume unit</Label>
+                  <Controller
+                    control={formData.control}
+                    name="volumeUnit"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {allVolumeUnits.map((unit) => (
+                                <SelectItem value={unit} key={unit}>
+                                  {getVolumeUnitName(unit)}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {volumeUnit === CUSTOM_UNIT_KEY && (
+                            <Input
+                              className="mt-2"
+                              placeholder="Enter unit"
+                              value={customVolumeUnit}
+                              onChange={(e) =>
+                                setCustomVolumeUnit(e.target.value)
+                              }
+                            />
+                          )}
+                        </>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -320,71 +621,117 @@ export default function NewOperationPage() {
               <CardTitle>Shipping Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Locations */}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimated_time_departure">
-                    Est. Departure
+                  <Label htmlFor="origin_location">Origin location</Label>
+                  <Input
+                    id="origin_location"
+                    {...formData.register("originLocation")}
+                    placeholder="Shangai"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="origin_country">Origin country</Label>
+                  <Input
+                    id="origin_country"
+                    {...formData.register("originCountry")}
+                    placeholder="CN"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="destination_location">
+                    Destination location
                   </Label>
                   <Input
-                    id="estimated_time_departure"
-                    name="estimated_time_departure"
-                    type="date"
-                    value={formData.estimated_time_departure}
-                    onChange={handleChange}
+                    id="destination_location"
+                    {...formData.register("destinationLocation")}
+                    placeholder="La Guaira"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="actual_time_departure">Act. Departure</Label>
+                  <Label htmlFor="destination_country">
+                    Destination country
+                  </Label>
+                  <Input
+                    id="destination_country"
+                    {...formData.register("destinationCountry")}
+                    placeholder="VE"
+                  />
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="estimated_time_departure">ETD</Label>
+                  <Input
+                    id="estimated_time_departure"
+                    type="date"
+                    {...formData.register("estimatedTimeDeparture")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="actual_time_departure">ATD</Label>
                   <Input
                     id="actual_time_departure"
-                    name="actual_time_departure"
                     type="date"
-                    value={formData.actual_time_departure}
-                    onChange={handleChange}
+                    {...formData.register("actualTimeDeparture")}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimated_time_arrival">Est. Arrival</Label>
+                  <Label htmlFor="estimated_time_arrival">ETA</Label>
                   <Input
                     id="estimated_time_arrival"
-                    name="estimated_time_arrival"
                     type="date"
-                    value={formData.estimated_time_arrival}
-                    onChange={handleChange}
+                    {...formData.register("estimatedTimeArrival")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="actual_time_arrival">Act. Arrival</Label>
+                  <Label htmlFor="actual_time_arrival">ATA</Label>
                   <Input
                     id="actual_time_arrival"
-                    name="actual_time_arrival"
                     type="date"
-                    value={formData.actual_time_arrival}
-                    onChange={handleChange}
+                    {...formData.register("actualTimeArrival")}
                   />
                 </div>
               </div>
 
+              <Separator className="my-4" />
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="master_transport_doc">Master Doc</Label>
+                  <Label htmlFor="master_transport_doc">
+                    {operationType === OperationTypes.MARITIME
+                      ? "MBL"
+                      : operationType === OperationTypes.AIR
+                      ? "MAWB"
+                      : "Master doc"}
+                  </Label>
                   <Input
                     id="master_transport_doc"
-                    name="master_transport_doc"
-                    value={formData.master_transport_doc}
-                    onChange={handleChange}
+                    {...formData.register("masterTransportDoc")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="house_transport_doc">House Doc</Label>
+                  <Label htmlFor="house_transport_doc">
+                    {operationType === OperationTypes.MARITIME
+                      ? "HBL"
+                      : operationType === OperationTypes.AIR
+                      ? "HAWB"
+                      : "House doc"}
+                  </Label>
                   <Input
                     id="house_transport_doc"
-                    name="house_transport_doc"
-                    value={formData.house_transport_doc}
-                    onChange={handleChange}
+                    {...formData.register("houseTransportDoc")}
                   />
                 </div>
               </div>
@@ -393,7 +740,7 @@ export default function NewOperationPage() {
                 <div className="space-y-2">
                   <Label htmlFor="incoterm">Incoterm</Label>
                   <Select
-                    value={formData.incoterm}
+                    value={incoterm || undefined}
                     onValueChange={(value) =>
                       handleSelectChange("incoterm", value)
                     }
@@ -413,132 +760,18 @@ export default function NewOperationPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="modality">Modality</Label>
-                  <Select
-                    value={formData.modality}
-                    onValueChange={(value) =>
-                      handleSelectChange("modality", value)
-                    }
-                  >
-                    <SelectTrigger id="modality">
-                      <SelectValue placeholder="Select modality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FCL">FCL</SelectItem>
-                      <SelectItem value="LCL">LCL</SelectItem>
-                      <SelectItem value="Air">Air</SelectItem>
-                      <SelectItem value="Road">Road</SelectItem>
-                      <SelectItem value="Rail">Rail</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="voyage">Voyage</Label>
-                <Input
-                  id="voyage"
-                  name="voyage"
-                  value={formData.voyage}
-                  onChange={handleChange}
-                />
+                <Input id="voyage" {...formData.register("voyage")} />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="status_id">Status</Label>
-                <Select
-                  value={formData.status_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("status_id", value)
-                  }
-                >
-                  <SelectTrigger id="status_id">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((status) => (
-                      <SelectItem
-                        key={status.status_id}
-                        value={status.status_id.toString()}
-                      >
-                        {status.status_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Separator className="my-4" />
 
               <div className="space-y-2">
-                <Label htmlFor="client_id">Client</Label>
-                <Select
-                  value={formData.client_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("client_id", value)
-                  }
-                  required
-                >
-                  <SelectTrigger id="client_id">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem
-                        key={client.client_id}
-                        value={client.client_id}
-                      >
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="carrier_id">Carrier</Label>
-                <Select
-                  value={formData.carrier_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("carrier_id", value)
-                  }
-                >
-                  <SelectTrigger id="carrier_id">
-                    <SelectValue placeholder="Select carrier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {carriers.map((carrier) => (
-                      <SelectItem
-                        key={carrier.carrier_id}
-                        value={carrier.carrier_id}
-                      >
-                        {carrier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agent_id">Agent</Label>
-                <Select
-                  value={formData.agent_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("agent_id", value)
-                  }
-                >
-                  <SelectTrigger id="agent_id">
-                    <SelectValue placeholder="Select agent" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {agents.map((agent) => (
-                      <SelectItem key={agent.agent_id} value={agent.agent_id}>
-                        {agent.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="comment">Observations</Label>
+                <Textarea id="comment" {...formData.register("comment")} />
               </div>
             </CardContent>
           </Card>

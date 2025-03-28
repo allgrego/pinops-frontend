@@ -1,6 +1,10 @@
+import { HelpCircle, Plane, Ship, Train, Truck } from "lucide-react";
+import { JSX } from "react";
+
 import { BACKEND_BASE_URL } from "@/core/setup/routes";
 import type { Client } from "@/modules/clients/types/clients";
 import {
+  OperationStatuses,
   OperationType,
   OperationTypes,
   OpsFile,
@@ -14,8 +18,65 @@ import {
 } from "@/modules/ops_files/types/ops_files.types";
 import { Agent } from "@/modules/providers/types/agents";
 import { Carrier } from "@/modules/providers/types/carriers.types";
-import { HelpCircle, Plane, Ship, Train, Truck } from "lucide-react";
-import { JSX } from "react";
+
+/**
+ *  - - - Units types options
+ */
+export const CargoUnitTypes = {
+  UNIT: "unit",
+  BOX: "box",
+  PALLET: "pallet",
+  PACKAGE: "package",
+  DRUM: "drum",
+  CONTAINER: "container",
+  BARREL: "barrel",
+  LOOSE_CARGO: "loose_cargo", // aka break bulk
+  // Add others here
+} as const;
+
+export type CargoUnitTypeKey = keyof typeof CargoUnitTypes;
+
+export type CargoUnitType = (typeof CargoUnitTypes)[CargoUnitTypeKey];
+
+/**
+ *  - - - Gross weight units options
+ */
+export const WeightUnits = {
+  KG: "unit",
+  LB: "box",
+  // Add others here
+} as const;
+
+export type WeightUnitKey = keyof typeof WeightUnits;
+
+export type WeightUnit = (typeof WeightUnits)[WeightUnitKey];
+
+/**
+ *  - - - Volume units options
+ */
+export const VolumeUnits = {
+  M3: "m3",
+  FT3: "ft3",
+  // Add others here
+} as const;
+
+export type VolumeUnitKey = keyof typeof VolumeUnits;
+
+export type VolumeUnit = (typeof VolumeUnits)[VolumeUnitKey];
+
+/**
+ * - - - Lists of all options
+ */
+
+export const allOperationTypes = Object.values(OperationTypes);
+
+export const allOperationStatuses = Object.values(OperationStatuses);
+
+export const allWeightUnits = Object.values(WeightUnits);
+
+export const allCargoUnitTypes = Object.values(CargoUnitTypes);
+
+export const allVolumeUnits = Object.values(VolumeUnits);
 
 /**
  * Transform an ops file from backend schema into internal schema
@@ -383,4 +444,85 @@ export const getOpsTypeName = (type: string) => {
   };
 
   return names?.[type as OperationType] || type;
+};
+
+/**
+ * Name for cargo unit type
+ *
+ * @param {string} type
+ * @param {boolean} singular
+ *
+ * @return {string}
+ */
+export const getCargoUnitTypesName = (type: string, singular = false) => {
+  const names: Record<CargoUnitType, { plural: string; singular: string }> = {
+    [CargoUnitTypes.UNIT]: {
+      plural: "units",
+      singular: "unit",
+    },
+    [CargoUnitTypes.BOX]: {
+      plural: "boxes",
+      singular: "box",
+    },
+    [CargoUnitTypes.PALLET]: {
+      plural: "pallets",
+      singular: "pallet",
+    },
+    [CargoUnitTypes.PACKAGE]: {
+      plural: "packages",
+      singular: "package",
+    },
+    [CargoUnitTypes.DRUM]: {
+      plural: "drums",
+      singular: "drum",
+    },
+    [CargoUnitTypes.CONTAINER]: {
+      plural: "containers",
+      singular: "container",
+    },
+    [CargoUnitTypes.BARREL]: {
+      plural: "barrels",
+      singular: "barrel",
+    },
+    [CargoUnitTypes.LOOSE_CARGO]: {
+      plural: "loose cargo",
+      singular: "loose cargo",
+    },
+  };
+
+  return (
+    names?.[type as CargoUnitType]?.[singular ? "singular" : "plural"] || type
+  );
+};
+
+/**
+ * Name for cargo weight units
+ *
+ * @param {string} unit
+ *
+ * @return {string}
+ */
+export const getWeightUnitName = (unit: string) => {
+  const names: Record<WeightUnit, string> = {
+    [WeightUnits.KG]: "Kg",
+    [WeightUnits.LB]: "Lb",
+  };
+
+  return names?.[unit as WeightUnit] || unit;
+};
+
+/**
+ * Name for volume units
+ *
+ * @param {string} unit
+ *
+ * @return {string}
+ */
+export const getVolumeUnitName = (unit: string) => {
+  const names: Record<VolumeUnit, string> = {
+    [VolumeUnits.M3]: "m³",
+    [VolumeUnits.FT3]: "ft³",
+  };
+
+  return names?.[unit as VolumeUnit] || unit;
 };

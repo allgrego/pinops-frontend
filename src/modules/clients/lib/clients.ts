@@ -45,7 +45,7 @@ export const getAllClients = async (): Promise<Client[]> => {
     return clients;
   } catch (error) {
     console.error("Failure getting all clients", error);
-    return Promise.reject(`${error}`);
+    throw error;
   }
 };
 

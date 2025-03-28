@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -41,10 +41,10 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import useDialog from "@/core/hooks/useDialog";
+import useCarriers from "@/modules/providers/hooks/useCarriers";
 import {
   createCarrier,
   deleteCarrier,
-  getAllCarriers,
   getCarrierTypeName,
   updateCarrier,
 } from "@/modules/providers/lib/carriers";
@@ -60,19 +60,13 @@ export default function CarriersPage() {
   /**
    * - - - Carriers fetching
    */
-  const carriersQuery = useQuery<Carrier[]>({
-    queryKey: ["carriersQuery"],
-    queryFn: async () => {
-      try {
-        return await getAllCarriers();
-      } catch (error) {
-        console.error("Failure fetching carriers", error);
-        return Promise.reject(`${error}`);
-      }
-    },
-  });
 
-  const carriers = carriersQuery.data || [];
+  const {
+    carriers,
+    query: carriersQuery,
+    isError: carriersIsError,
+    error: carriersError,
+  } = useCarriers();
 
   const loadCarriers = async () => {
     await carriersQuery.refetch();
@@ -474,6 +468,16 @@ export default function CarriersPage() {
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading...
+                </TableCell>
+              </TableRow>
+            ) : carriersIsError ? (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Unable to get carriers (Details:{" "}
+                  {String(carriersError || "unknown")})
                 </TableCell>
               </TableRow>
             ) : filteredCarriers.length === 0 ? (
