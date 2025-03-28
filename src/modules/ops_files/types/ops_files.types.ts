@@ -10,7 +10,7 @@ import {
  */
 export const OperationTypes = {
   MARITIME: "maritime",
-  AIR: "airline",
+  AIR: "air",
   ROAD: "road",
   TRAIN: "train",
 } as const;
@@ -22,6 +22,19 @@ export type OperationType = (typeof OperationTypes)[OperationTypeKey];
 /**
  * - - - Operation statuses
  */
+
+export const OperationStatuses = {
+  OPENED: 1,
+  IN_TRANSIT: 2,
+  ON_DESTINATION: 3,
+  IN_WAREHOUSE: 4,
+  PREALERTED: 5,
+  CLOSED: 6,
+} as const;
+
+export type OperationStatusKey = keyof typeof OperationStatuses;
+
+export type OperationStatus = (typeof OperationStatuses)[OperationStatusKey];
 
 // Backend
 

@@ -1,6 +1,8 @@
 import { BACKEND_BASE_URL } from "@/core/setup/routes";
 import type { Client } from "@/modules/clients/types/clients";
 import {
+  OperationType,
+  OperationTypes,
   OpsFile,
   OpsFileBackend,
   OpsFileComment,
@@ -12,6 +14,8 @@ import {
 } from "@/modules/ops_files/types/ops_files.types";
 import { Agent } from "@/modules/providers/types/agents";
 import { Carrier } from "@/modules/providers/types/carriers.types";
+import { HelpCircle, Plane, Ship, Train, Truck } from "lucide-react";
+import { JSX } from "react";
 
 /**
  * Transform an ops file from backend schema into internal schema
@@ -343,4 +347,40 @@ export const deleteOpsFile = async (opsFileId: string): Promise<boolean> => {
     console.error("Failure deleting an ops file", error);
     return Promise.reject(`${error}`);
   }
+};
+
+/**
+ * Icon for Operation type
+ *
+ * @param {string} type
+ *
+ * @return {JSX.Element}
+ */
+export const getOpsTypeIcon = (type: string) => {
+  const icons: Record<OperationType, JSX.Element> = {
+    [OperationTypes.MARITIME]: <Ship />,
+    [OperationTypes.AIR]: <Plane />,
+    [OperationTypes.ROAD]: <Truck />,
+    [OperationTypes.TRAIN]: <Train />,
+  };
+
+  return icons?.[type as OperationType] || <HelpCircle />;
+};
+
+/**
+ * Name for Operation type
+ *
+ * @param {string} type
+ *
+ * @return {string}
+ */
+export const getOpsTypeName = (type: string) => {
+  const names: Record<OperationType, string> = {
+    [OperationTypes.MARITIME]: "Maritime",
+    [OperationTypes.AIR]: "Air",
+    [OperationTypes.ROAD]: "Road",
+    [OperationTypes.TRAIN]: "Train",
+  };
+
+  return names?.[type as OperationType] || type;
 };

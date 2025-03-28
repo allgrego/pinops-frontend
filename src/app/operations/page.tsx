@@ -1,5 +1,12 @@
 "use client";
 
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
 import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
@@ -18,67 +25,135 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import {
-  deleteOperation,
-  getOperations,
-  type TradeOperation,
-} from "@/core/lib/data";
-import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/core/components/ui/tooltip";
+import useDialog from "@/core/hooks/useDialog";
+import {
+  deleteOpsFile,
+  getAllOpsFiles,
+  getOpsTypeIcon,
+  getOpsTypeName,
+} from "@/modules/ops_files/lib/ops_files";
+import {
+  OperationStatuses,
+  OpsFile,
+} from "@/modules/ops_files/types/ops_files.types";
 
 export default function OperationsPage() {
-  const [operations, setOperations] = useState<TradeOperation[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  /**
+   * - - - Ops files fetching
+   */
+  const opsFilesQuery = useQuery<OpsFile[]>({
+    queryKey: ["OpsFilesQuery"],
+    queryFn: async () => {
+      try {
+        return await getAllOpsFiles();
+      } catch (error) {
+        console.error("Failure fetching ops files", error);
+        return Promise.reject(`${error}`);
+      }
+    },
+  });
 
-  useEffect(() => {
-    loadOperations();
-  }, []);
+  const opsFiles = opsFilesQuery.data || [];
 
-  const loadOperations = () => {
-    const ops = getOperations();
-    setOperations(ops);
+  const loadOpsFiles = async () => {
+    await opsFilesQuery.refetch();
   };
 
-  const handleDelete = (id: string) => {
-    const success = deleteOperation(id);
+  /**
+   * - - - Search and filters logic
+   */
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // TODO: improve search by multiple properties
+  const filteredOpsFiles = opsFiles.filter((opFile) =>
+    opFile.client.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(
+        searchTerm
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+      )
+  );
+
+  // const filteredOpsFiles = operations.filter(
+  //   (op) =>
+  //     op.cargo_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     op.origin_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     op.destination_location
+  //       .toLowerCase()
+  //       .includes(searchTerm.toLowerCase()) ||
+  //     op.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     op.master_transport_doc?.toLowerCase().includes(searchTerm.toLowerCase())
+  // );
+
+  /**
+   * - - - - Selected client logic (for both details and edit)
+   */
+  const [currentOpsFile, setCurrentOpsFile] = useState<OpsFile | null>(null);
+
+  /**
+   *  - - - - Delete Ops file logic
+   */
+
+  // Mutation
+  const deleteOpsFileMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["DeleteOpsFileMutation"],
+    mutationFn: async (opFileId) => await deleteOpsFile(opFileId),
+    onError(error) {
+      toast(`Failure deleting operation. ${error}`);
+    },
+  });
+
+  const { isOpen: isDeleteOpsFileOpen, setIsOpen: setIsDeleteOpsFileOpen } =
+    useDialog();
+
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState<string>("");
+
+  const openDeleteConfirmationDialog = () => {
+    setDeleteConfirmationText("");
+    setIsDeleteOpsFileOpen(true);
+  };
+
+  const handleDeleteOpsFile = async (id: string) => {
+    if (!id) {
+      toast("Unable to delete operation. No ID found");
+      return;
+    }
+
+    const success = await deleteOpsFileMutation.mutateAsync(id);
+
     if (success) {
-      toast(
-        // title: "Operation deleted",
-        "The operation has been deleted successfully."
-      );
-      loadOperations();
+      // Close modal
+      setIsDeleteOpsFileOpen(false);
+      toast("The operation has been deleted successfully.");
+      await loadOpsFiles();
     } else {
-      toast(
-        // title: "Error",
-        "Failed to delete the operation."
-        // variant: "destructive",
-      );
+      toast("Failed to delete the operation.");
     }
   };
 
-  const filteredOperations = operations.filter(
-    (op) =>
-      op.cargo_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.origin_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.destination_location
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      op.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.master_transport_doc?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStatusColor = (statusName: string) => {
-    switch (statusName) {
-      case "Opened":
+  const getStatusColor = (statusId: number) => {
+    switch (statusId) {
+      case OperationStatuses.OPENED:
         return "bg-blue-100 text-blue-800";
-      case "In Transit":
+      case OperationStatuses.IN_TRANSIT:
         return "bg-yellow-100 text-yellow-800";
-      case "Arrived":
+      case OperationStatuses.ON_DESTINATION:
         return "bg-green-100 text-green-800";
-      case "Delivered":
+      case OperationStatuses.IN_WAREHOUSE:
         return "bg-purple-100 text-purple-800";
-      case "Closed":
+      case OperationStatuses.PREALERTED:
+        return "bg-gray-100 text-gray-800";
+      case OperationStatuses.CLOSED:
         return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -119,6 +194,8 @@ export default function OperationsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Origin</TableHead>
               <TableHead>Destination</TableHead>
               <TableHead>Cargo</TableHead>
@@ -129,41 +206,69 @@ export default function OperationsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOperations.length === 0 ? (
+            {opsFilesQuery.isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
-                  className="text-center py-8 text-muted-foreground"
+                  colSpan={9}
+                  className="text-center py-4 text-muted-foreground"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : filteredOpsFiles.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className="text-center py-4 text-muted-foreground"
                 >
                   No operations found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredOperations.map((operation) => (
-                <TableRow key={operation.op_id}>
-                  <TableCell>
-                    {operation.origin_location}, {operation.origin_country}
+              filteredOpsFiles.map((operation) => (
+                <TableRow key={operation.opsFileId} className="text-xs">
+                  <TableCell className="">
+                    {operation?.opsFileId?.substring(0, 8)?.toUpperCase()}
+                  </TableCell>
+
+                  <TableCell className="">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          {getOpsTypeIcon(operation?.opType || "")}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">
+                            {getOpsTypeName(operation?.opType || "")}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell>
-                    {operation.destination_location},{" "}
-                    {operation.destination_country}
+                    {operation.originLocation}, {operation.originCountry}
                   </TableCell>
-                  <TableCell>{operation.cargo_description}</TableCell>
+                  <TableCell>
+                    {operation.destinationLocation},{" "}
+                    {operation.destinationCountry}
+                  </TableCell>
+                  <TableCell>{operation.cargoDescription}</TableCell>
                   <TableCell>{operation.client.name}</TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={getStatusColor(operation.status.status_name)}
+                      className={getStatusColor(operation.status.statusId)}
                     >
-                      {operation.status.status_name}
+                      {operation.status.statusName}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {operation.estimated_time_arrival
+                    {operation?.estimatedTimeArrival || "-"}
+                    {/* {operation.estimatedTimeArrival
                       ? new Date(
-                          operation.estimated_time_arrival
+                          operation.estimatedTimeArrival
                         ).toLocaleDateString()
-                      : "N/A"}
+                      : "N/A"} */}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -175,19 +280,24 @@ export default function OperationsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/operations/${operation.op_id}`}>
+                          <Link href={`/operations/${operation.opsFileId}`}>
                             <Eye className="mr-2 h-4 w-4" />
                             Details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/operations/${operation.op_id}/edit`}>
+                          <Link
+                            href={`/operations/${operation.opsFileId}/edit`}
+                          >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDelete(operation.op_id)}
+                          onClick={() => {
+                            setCurrentOpsFile(operation);
+                            openDeleteConfirmationDialog();
+                          }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -201,6 +311,39 @@ export default function OperationsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Delete ops file confirmation dialog */}
+      <DeleteConfirmationDialog
+        DialogProps={{
+          open: isDeleteOpsFileOpen,
+          onOpenChange: setIsDeleteOpsFileOpen,
+        }}
+        title={"Operation delete"}
+        description={"Delete operation information"}
+        body={
+          <div className="">
+            <div className="">
+              You are about to delete the operation of client{" "}
+              <span className="font-semibold underline">
+                {currentOpsFile?.client?.name}
+              </span>
+              . This cannot be undone.
+            </div>
+            <div className="mt-4">
+              <span className="text-xs font-light">
+                Operation ID: {currentOpsFile?.opsFileId}
+              </span>
+            </div>
+          </div>
+        }
+        confirmationText={deleteConfirmationText}
+        updateConfirmationText={(val) => setDeleteConfirmationText(val)}
+        onDelete={() => {
+          handleDeleteOpsFile(currentOpsFile?.opsFileId || "");
+        }}
+        onCancel={() => setIsDeleteOpsFileOpen(false)}
+        isDeleting={deleteOpsFileMutation.isPending}
+      />
     </div>
   );
 }
