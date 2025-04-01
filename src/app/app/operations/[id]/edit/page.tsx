@@ -186,7 +186,7 @@ export default async function EditOperationPage(props: { params: Params }) {
       if (updatedOperation) {
         toast("The operation has been updated successfully.");
 
-        router.push(`/operations/${params.id}`);
+        router.push(`/app/operations/${params.id}`);
       } else {
         toast("Failed to update the operation.");
       }
@@ -209,7 +209,7 @@ export default async function EditOperationPage(props: { params: Params }) {
           The operation you{"'"}re looking for doesn{"'"}t exist.
         </p>
         <Button asChild>
-          <Link href="/operations">
+          <Link href="/app/operations">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Operations
           </Link>

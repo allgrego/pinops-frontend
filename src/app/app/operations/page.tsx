@@ -41,11 +41,20 @@ import {
 } from "@/modules/ops_files/lib/ops_files";
 import { OpsFile } from "@/modules/ops_files/types/ops_files.types";
 import { formatDate } from "@/core/lib/dates";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRoles } from "@/modules/auth/setup/auth";
 
 const DEFAULT_MISSING_DATA_TAG = "- -";
 
 export default function OperationsPage() {
   const router = useRouter();
+
+  /**
+   * - - - Auth
+   */
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   /**
    * - - - Ops files fetching
    */
@@ -73,16 +82,48 @@ export default function OperationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // TODO: improve search by multiple properties
-  const filteredOpsFiles = opsFiles.filter((opFile) =>
-    opFile.client.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .includes(
-        searchTerm
+  const filteredOpsFiles = opsFiles.filter(
+    ({
+      client,
+      opsFileId,
+      destinationCountry,
+      destinationLocation,
+      originCountry,
+      originLocation,
+      cargoDescription,
+      incoterm,
+      masterTransportDoc,
+      houseTransportDoc,
+      voyage,
+      opType,
+      status,
+    }) =>
+      // Iterate on each filter parameter
+      [
+        client?.name,
+        opsFileId,
+        destinationCountry,
+        destinationLocation,
+        originCountry,
+        originLocation,
+        cargoDescription,
+        incoterm,
+        masterTransportDoc,
+        houseTransportDoc,
+        voyage,
+        opType,
+        status?.statusName,
+      ].some((value) =>
+        String(value || "")
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase()
+          .includes(
+            searchTerm
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+          )
       )
   );
 
@@ -145,7 +186,7 @@ export default function OperationsPage() {
   };
 
   const openOperation = (opId: string) => {
-    const url = `/operations/${opId}`;
+    const url = `/app/operations/${opId}`;
     router.push(url);
   };
 
@@ -154,12 +195,10 @@ export default function OperationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Operations</h1>
-          <p className="text-muted-foreground">
-            Manage your international trade operations
-          </p>
+          <p className="text-muted-foreground">Manage your operations</p>
         </div>
         <Button asChild>
-          <Link href="/operations/new">
+          <Link href="/app/operations/new">
             <Plus className="mr-2 h-4 w-4" />
             New Operation
           </Link>
@@ -230,7 +269,7 @@ export default function OperationsPage() {
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
-                          <Link href={`/operations/${operation.opsFileId}`}>
+                          <Link href={`/app/operations/${operation.opsFileId}`}>
                             {getOpsTypeIcon(operation?.opType || "")}
                           </Link>
                         </TooltipTrigger>
@@ -289,24 +328,26 @@ export default function OperationsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/operations/${operation.opsFileId}`}>
+                          <Link href={`/app/operations/${operation.opsFileId}`}>
                             <Eye className="mr-2 h-4 w-4" />
                             Details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link
-                            href={`/operations/${operation.opsFileId}/edit`}
+                            href={`/app/operations/${operation.opsFileId}/edit`}
                           >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </Link>
                         </DropdownMenuItem>
+
                         <DropdownMenuItem
                           onClick={() => {
                             setCurrentOpsFile(operation);
                             openDeleteConfirmationDialog();
                           }}
+                          disabled={userRole !== UserRoles.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete

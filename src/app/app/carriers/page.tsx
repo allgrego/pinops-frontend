@@ -41,6 +41,8 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import useDialog from "@/core/hooks/useDialog";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRoles } from "@/modules/auth/setup/auth";
 import useCarriers from "@/modules/providers/hooks/useCarriers";
 import {
   createCarrier,
@@ -57,6 +59,12 @@ import {
 } from "@/modules/providers/types/carriers.types";
 
 export default function CarriersPage() {
+  /**
+   * - - - Auth
+   */
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   /**
    * - - - Carriers fetching
    */
@@ -537,6 +545,7 @@ export default function CarriersPage() {
                             setCurrentCarrier(carrier);
                             openDeleteConfirmationDialog();
                           }}
+                          disabled={userRole !== UserRoles.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -726,7 +735,9 @@ export default function CarriersPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={updateCarrierMutation.isPending}
+              disabled={
+                updateCarrierMutation.isPending || userRole !== UserRoles.ADMIN
+              }
               onClick={() => {
                 setIsEditCarrierOpen(false);
                 openDeleteConfirmationDialog();

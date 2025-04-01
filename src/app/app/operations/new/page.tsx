@@ -196,7 +196,7 @@ export default function NewOperationPage() {
 
       toast("The operation has been created successfully.");
 
-      router.push(`/operations/${newOperation.opsFileId}`);
+      router.push(`/app/operations/${newOperation.opsFileId}`);
     } catch (error) {
       toast(`Failed to create the operation. ${error}`);
     }
@@ -206,7 +206,7 @@ export default function NewOperationPage() {
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/operations">
+          <Link href="/app/operations">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -789,7 +789,7 @@ export default function NewOperationPage() {
 
         <div className="mt-6 flex justify-end space-x-4">
           <Button variant="outline" asChild>
-            <Link href="/operations">Cancel</Link>
+            <Link href="/app/operations">Cancel</Link>
           </Button>
           <Button type="submit">Create Operation</Button>
         </div>

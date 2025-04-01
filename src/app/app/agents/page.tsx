@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/core/components/ui/table";
 import useDialog from "@/core/hooks/useDialog";
+import { useAuth } from "@/modules/auth/lib/auth";
 import useAgents from "@/modules/providers/hooks/useAgents";
 import {
   createAgent,
@@ -44,8 +45,15 @@ import {
   AgentCreate,
   AgentUpdate,
 } from "@/modules/providers/types/agents";
+import { UserRoles } from "@/modules/auth/setup/auth";
 
 export default function AgentsPage() {
+  /**
+   * - - - Auth
+   */
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   /**
    * - - - Agents fetching
    */
@@ -460,6 +468,7 @@ export default function AgentsPage() {
                             setCurrentAgent(agent);
                             openDeleteConfirmationDialog();
                           }}
+                          disabled={userRole !== UserRoles.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -611,7 +620,9 @@ export default function AgentsPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={updateAgentMutation.isPending}
+              disabled={
+                updateAgentMutation.isPending || userRole !== UserRoles.ADMIN
+              }
               onClick={() => {
                 setIsEditAgentOpen(false);
                 openDeleteConfirmationDialog();

@@ -32,9 +32,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/core/components/ui/table";
-import { Textarea } from "@/core/components/ui/textarea";
 import useDialog from "@/core/hooks/useDialog";
-import { addComment } from "@/core/lib/data";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRoles } from "@/modules/auth/setup/auth";
 import {
   createClient,
   deleteClient,
@@ -48,6 +48,12 @@ import {
 import useClients from "@/modules/hooks/useClients";
 
 export default function ClientsPage() {
+  /**
+   * - - - Auth
+   */
+  const { user } = useAuth();
+  const userRole = user?.role;
+
   /**
    * - - - Clients fetching
    */
@@ -79,9 +85,6 @@ export default function ClientsPage() {
           .toLowerCase()
       )
   );
-
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
-  const [comment, setComment] = useState("");
 
   /**
    * - - - - Selected client logic (for both details and edit)
@@ -283,25 +286,6 @@ export default function ClientsPage() {
       toast("Failed to delete the client.");
     }
   };
-
-  const handleAddComment = () => {
-    if (!currentClient || !comment.trim()) return;
-
-    const newComment = addComment("client", currentClient.clientId, comment);
-    if (newComment) {
-      toast("Your comment has been added successfully.");
-      setComment("");
-      setIsCommentOpen(false);
-      loadClients();
-    } else {
-      toast("Failed to add comment.");
-    }
-  };
-
-  // const openCommentDialog = (client: Client) => {
-  //   setCurrentClient(client);
-  //   setIsCommentOpen(true);
-  // };
 
   return (
     <div className="space-y-6">
@@ -508,6 +492,7 @@ export default function ClientsPage() {
                             setCurrentClient(client);
                             openDeleteConfirmationDialog();
                           }}
+                          disabled={userRole !== UserRoles.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -677,7 +662,9 @@ export default function ClientsPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={updateClientMutation.isPending}
+              disabled={
+                updateClientMutation.isPending || userRole !== UserRoles.ADMIN
+              }
               onClick={() => {
                 setIsEditClientOpen(false);
                 openDeleteConfirmationDialog();
@@ -722,54 +709,6 @@ export default function ClientsPage() {
         onCancel={() => setIsDeleteClientOpen(false)}
         isDeleting={deleteClientMutation.isPending}
       />
-
-      {/* Add Comment Dialog */}
-      <Dialog open={isCommentOpen} onOpenChange={setIsCommentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Comment</DialogTitle>
-            <DialogDescription>
-              Add a comment to {currentClient?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="comment">Comment</Label>
-              <Textarea
-                id="comment"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Enter your comment"
-                rows={4}
-              />
-            </div>
-            {/* {currentClient?.comments && currentClient.comments.length > 0 && (
-              <div className="space-y-2">
-                <Label>Previous Comments</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
-                  {currentClient.comments.map((comment) => (
-                    <div key={comment.id} className="text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comment.author}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(comment.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p>{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )} */}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCommentOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddComment}>Add Comment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

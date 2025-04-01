@@ -2,9 +2,11 @@
 
 import {
   LayoutDashboard,
+  LogOut,
   Menu,
   Package2,
   Ship,
+  User,
   UserCog,
   Users,
   X,
@@ -17,32 +19,43 @@ import { Button } from "@/core/components/ui/button";
 import { useMobile } from "@/core/hooks/useMobile";
 import { cn } from "@/core/lib/utils";
 
+import { useAuth } from "@/modules/auth/lib/auth";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+
 const APP_NAME = "PinOps";
 
 const navItems = [
   {
     name: "Dashboard",
-    href: "/dashboard",
+    href: "/app/dashboard",
     icon: LayoutDashboard,
   },
   {
     name: "Operations",
-    href: "/operations",
+    href: "/app/operations",
     icon: Package2,
   },
   {
     name: "Clients",
-    href: "/clients",
+    href: "/app/clients",
     icon: Users,
   },
   {
     name: "Carriers",
-    href: "/carriers",
+    href: "/app/carriers",
     icon: Ship,
   },
   {
     name: "International Agents",
-    href: "/agents",
+    href: "/app/agents",
     icon: UserCog,
   },
 ];
@@ -53,6 +66,20 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const { user, logout, isAuthenticated } = useAuth();
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Get user initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+  };
 
   if (isMobile) {
     return (
@@ -82,23 +109,81 @@ export function Sidebar() {
                 </Button>
               </div>
               <nav className="space-y-2">
-                {navItems.map((item) => (
+                {!isAuthenticated ? (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={toggleSidebar}
+                    href={"/auth/login"}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
-                      pathname.startsWith(item.href)
-                        ? "bg-muted font-medium text-primary"
-                        : "text-muted-foreground"
+                      "text-muted-foreground"
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.name}
+                    <LayoutDashboard className="h-4 w-4" />
+                    Home
                   </Link>
-                ))}
+                ) : (
+                  navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={toggleSidebar}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
+                        pathname.startsWith(item.href)
+                          ? "bg-muted font-medium text-primary"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.name}
+                    </Link>
+                  ))
+                )}
               </nav>
+
+              {user && (
+                <div className="mt-auto pt-4 border-t">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start px-2 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {getInitials(user.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <p className="text-sm font-medium">{user.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {user.role}
+                            </p>
+                          </div>
+                        </div>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>My account</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/app/profile" className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          Profile
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -112,22 +197,76 @@ export function Sidebar() {
         <h2 className="text-xl font-bold">{APP_NAME}</h2>
       </div>
       <nav className="space-y-2">
-        {navItems.map((item) => (
+        {!isAuthenticated ? (
           <Link
-            key={item.href}
-            href={item.href}
+            href={"/auth/login"}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
-              pathname.startsWith(item.href)
-                ? "bg-muted font-medium text-primary"
-                : "text-muted-foreground"
+              "text-muted-foreground"
             )}
           >
-            <item.icon className="h-4 w-4" />
-            {item.name}
+            <LayoutDashboard className="h-4 w-4" />
+            Home
           </Link>
-        ))}
+        ) : (
+          navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
+                pathname.startsWith(item.href)
+                  ? "bg-muted font-medium text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.name}
+            </Link>
+          ))
+        )}
       </nav>
+
+      {user && (
+        <div className="mt-6 pt-4 border-t">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-2 cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                  </div>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/app/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 }

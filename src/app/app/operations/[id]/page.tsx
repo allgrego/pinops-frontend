@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CalendarArrowDown,
   CalendarArrowUp,
-  Edit,
   MapPin,
   MessageSquare,
   Send,
@@ -43,12 +42,20 @@ import {
   OpsFileComment,
   OpsfileCommentCreate,
 } from "@/modules/ops_files/types/ops_files.types";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRoles } from "@/modules/auth/setup/auth";
 
 const DEFAULT_USER_NAME = "System user";
 const DEFAULT_MISSING_DATA_TAG = "- -";
 
 export default function OperationDetailPage() {
   const params = useParams();
+
+  /**
+   * - - - Auth
+   */
+  const { user } = useAuth();
+  const userRole = user?.role;
 
   const operationId = String(params?.id || "");
 
@@ -91,7 +98,7 @@ export default function OperationDetailPage() {
     const newComment = await createCommentMutation.mutateAsync({
       opsFileid: operationId,
       content: comment.trim(),
-      author: null, // TODO set author when user data is available
+      author: user?.name?.trim() || null, // TODO set author when user data is available
     });
 
     if (newComment) {
@@ -150,7 +157,7 @@ export default function OperationDetailPage() {
         {String(operationData?.error || "No further details")}
       </p>
       <Button asChild>
-        <Link href="/operations">
+        <Link href="/app/operations">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to operations
         </Link>
@@ -166,7 +173,7 @@ export default function OperationDetailPage() {
           The operation you{"'"}re looking for doesn{"'"}t exist.
         </p>
         <Button asChild>
-          <Link href="/operations">
+          <Link href="/app/operations">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to operations
           </Link>
@@ -180,7 +187,7 @@ export default function OperationDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size="icon" asChild>
-            <Link href="/operations">
+            <Link href="/app/operations">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -196,12 +203,12 @@ export default function OperationDetailPage() {
           </div>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" asChild>
-            <Link href={`/operations/${operation.opsFileId}/edit`}>
+          {/* <Button variant="outline" asChild disabled>
+            <Link href={`/app/operations/${operation.opsFileId}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Link>
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -490,10 +497,12 @@ export default function OperationDetailPage() {
                     </div>
                     <div className="w-full flex gap-2 items-center justify-between">
                       <p className="text-sm">{comment.content}</p>
+
                       <div className="w-fit invisible opacity-0 group-hover:visible group-hover:opacity-100 transition">
                         <Button
                           variant="outline"
                           className="cursor-pointer"
+                          disabled={userRole !== UserRoles.ADMIN}
                           onClick={() => {
                             handleDeleteComment(comment?.commentId || "");
                           }}

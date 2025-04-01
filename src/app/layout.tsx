@@ -3,10 +3,10 @@ import { Inter } from "next/font/google";
 import type React from "react";
 
 import Providers from "@/app/providers";
-import { Sidebar } from "@/core/components/sidebar/Sidebar";
 import { ThemeProvider } from "@/core/components/theme-provider/ThemeProvider";
 import { Toaster } from "@/core/components/ui/sonner";
 
+import { AuthGuard } from "@/modules/auth/components/AuthGuard/AuthGuard";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -32,11 +32,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <div className="flex-1 p-8">{children}</div>
-            </div>
-            <Toaster />
+            <AuthGuard>
+              {children}
+              <Toaster />
+            </AuthGuard>
           </ThemeProvider>
         </Providers>
       </body>
