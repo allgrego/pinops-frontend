@@ -69,6 +69,7 @@ export interface OpsFileCommentBaseBackend {
 export interface OpsFileCommentBackend extends OpsFileCommentBaseBackend {
   comment_id: string;
   op_id: string;
+  created_at: string | null;
 }
 
 export interface OpsfileCommentCreateBackend extends OpsFileCommentBaseBackend {
@@ -86,6 +87,7 @@ export interface OpsFileCommentBase {
 export interface OpsFileComment extends OpsFileCommentBase {
   commentId: OpsFileCommentBackend["comment_id"];
   opsFileId: OpsFileCommentBackend["op_id"];
+  createdAt: OpsFileCommentBackend["created_at"];
 }
 
 export interface OpsfileCommentCreate extends OpsFileCommentBase {
@@ -151,10 +153,14 @@ export interface OpsFileCreateBackend extends OpsFileBaseBackend {
   carrier_id: string | null;
   agents_id: string[]; // Could be empty list
 
+  comment?: Omit<OpsfileCommentCreateBackend, "op_id"> | null;
+
   // All rest of properties are inherited and optional
 }
 
-export type OpsFileUpdateBackend = Partial<OpsFileCreateBackend>; // Same as create but everything is optional
+export type OpsFileUpdateBackend = Partial<
+  Omit<OpsFileCreateBackend, "comment">
+>; // Same as create but everything is optional (excepting comment)
 
 // Internal
 
@@ -211,6 +217,8 @@ export interface OpsFileCreate extends OpsFileBase {
   agentsId: OpsFileCreateBackend["agents_id"]; // Could be empty list
 
   // All rest of properties are inherited and optional
+
+  comment?: OpsFileCreateBackend["comment"];
 }
 
-export type OpsFileUpdate = Partial<OpsFileCreate>; // Same as create but everything is optional
+export type OpsFileUpdate = Partial<Omit<OpsFileCreate, "comment">>; // Same as create but everything is optional

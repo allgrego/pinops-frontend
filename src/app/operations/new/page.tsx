@@ -1,5 +1,13 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
+import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Controller, SubmitHandler, useForm } from "react-hook-form";
+import { toast } from "sonner";
+
 import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
@@ -40,6 +48,7 @@ import {
   allOperationTypes,
   allVolumeUnits,
   allWeightUnits,
+  createOpsFile,
   getCargoUnitTypesName,
   getOpsTypeName,
   getVolumeUnitName,
@@ -48,15 +57,11 @@ import {
 import {
   OperationStatuses,
   OperationTypes,
+  OpsFile,
   OpsFileCreate,
 } from "@/modules/ops_files/types/ops_files.types";
 import useAgents from "@/modules/providers/hooks/useAgents";
 import useCarriers from "@/modules/providers/hooks/useCarriers";
-import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { Controller, SubmitHandler, useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
   comment?: string;
@@ -64,9 +69,11 @@ type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
 
 const CUSTOM_UNIT_KEY = "other";
 const NONE_SELECT_OPTION = "none";
+const DEFAULT_OPS_STATUS = OperationStatuses.OPENED;
+const DEFAULT_OPS_TYPE = OperationTypes.MARITIME;
 
 export default function NewOperationPage() {
-  // const router = useRouter();
+  const router = useRouter();
 
   const clientsData = useClients();
   const { clients } = clientsData;
@@ -84,8 +91,8 @@ export default function NewOperationPage() {
 
   const formData = useForm<NewOperationFormData>({
     defaultValues: {
-      opType: OperationTypes.MARITIME,
-      statusId: OperationStatuses.OPENED, // Always opened
+      opType: DEFAULT_OPS_TYPE,
+      statusId: DEFAULT_OPS_STATUS, // Always opened
       carrierId: null,
     },
   });
@@ -111,82 +118,85 @@ export default function NewOperationPage() {
     );
   };
 
-  const handleSubmit: SubmitHandler<NewOperationFormData> = (data, e) => {
+  /***
+   * - - - - Create operation logic
+   */
+  const createOperationMutation = useMutation<OpsFile, Error, OpsFileCreate>({
+    mutationKey: ["CreateOperation"],
+    mutationFn: async (newOpsFileData) => {
+      console.log("DATA", newOpsFileData);
+      return await createOpsFile(newOpsFileData);
+    },
+    onError(error) {
+      toast(`Unable to create operation. ${error}`);
+    },
+  });
+
+  const handleSubmit: SubmitHandler<NewOperationFormData> = async (data, e) => {
     e?.preventDefault();
 
     try {
-      toast("Not yet implemented");
-
-      return;
-      // Find the selected client, carrier, agents
-      // const client = clients.find((c) => c.clientId === data.clientId);
-      // const carrier = data.carrierId
-      //   ? carriers.find((c) => c.carrierId === data.carrierId)
-      //   : null;
-
-      // const selectedAgentObjects = agents.filter((a) =>
-      //   selectedAgents.includes(a.agentId)
-      // );
-
-      // const status = statuses.find((s) => s.status_id === data.statusId);
-
-      // if (!client || !status) {
-      //   toast("Error", {
-      //     description: "Client and status are required.",
-      //   });
-      //   return;
-      // }
-
-      // // Determine the final units
-      // const finalWeightUnit =
-      //   data.grossWeightUnit === CUSTOM_UNIT_KEY
-      //     ? customWeightUnit
-      //     : data.grossWeightUnit;
-      // const finalVolumeUnit =
-      //   data.volumeUnit === CUSTOM_UNIT_KEY
-      //     ? customVolumeUnit
-      //     : data.volumeUnit;
-      // const finalUnitsType =
-      //   data.unitsType === CUSTOM_UNIT_KEY ? customUnitsType : data.unitsType;
+      // Determine the final units
+      const finalWeightUnit =
+        data.grossWeightUnit === CUSTOM_UNIT_KEY
+          ? customWeightUnit
+          : data.grossWeightUnit;
+      const finalVolumeUnit =
+        data.volumeUnit === CUSTOM_UNIT_KEY
+          ? customVolumeUnit
+          : data.volumeUnit;
+      const finalUnitsType =
+        data.unitsType === CUSTOM_UNIT_KEY ? customUnitsType : data.unitsType;
 
       // Create the operation
-      // const newOperation = createOperation({
-      //   origin_location: data.origin_location,
-      //   origin_country: data.origin_country,
-      //   destination_location: data.destination_location,
-      //   destination_country: data.destination_country,
-      //   estimated_time_departure: data.estimated_time_departure || null,
-      //   actual_time_departure: data.actual_time_departure || null,
-      //   estimated_time_arrival: data.estimated_time_arrival || null,
-      //   actual_time_arrival: data.actual_time_arrival || null,
-      //   cargo_description: data.cargo_description,
-      //   units_quantity: data.units_quantity
-      //     ? Number(data.units_quantity)
-      //     : null,
-      //   unitsType: finalUnitsType || null,
-      //   gross_weight_value: data.gross_weight_value
-      //     ? Number(data.gross_weight_value)
-      //     : null,
-      //   gross_weight_unit: finalWeightUnit || null,
-      //   volume_value: data.volume_value ? Number(data.volume_value) : null,
-      //   volumeUnit: finalVolumeUnit || null,
-      //   master_transport_doc: data.master_transport_doc || null,
-      //   house_transport_doc: data.house_transport_doc || null,
-      //   incoterm: data.incoterm || null,
-      //   modality: data.modality || null,
-      //   voyage: data.voyage || null,
-      //   operation_type: data.operation_type || null,
-      //   client,
-      //   status,
-      //   carrier,
-      //   agents: selectedAgentObjects,
-      // });
+      const newOperation = await createOperationMutation.mutateAsync({
+        // Location
+        originLocation: data?.originLocation?.trim() || null,
+        originCountry: data.originCountry?.trim() || null,
+        destinationLocation: data?.destinationLocation || null,
+        destinationCountry: data?.destinationCountry || null,
+        // Schedules
+        estimatedTimeDeparture: data?.estimatedTimeDeparture || null,
+        actualTimeDeparture: data?.actualTimeDeparture || null,
+        estimatedTimeArrival: data?.estimatedTimeArrival || null,
+        actualTimeArrival: data?.actualTimeArrival || null,
+        cargoDescription: data?.cargoDescription,
+        unitsQuantity:
+          typeof data.unitsQuantity === "number"
+            ? Number(data.unitsQuantity)
+            : null,
+        unitsType: finalUnitsType || null,
+        grossWeightValue:
+          typeof data?.grossWeightValue === "number"
+            ? Number(data.grossWeightValue)
+            : null,
+        grossWeightUnit: finalWeightUnit || null,
+        volumeValue:
+          typeof data?.volumeValue === "number"
+            ? Number(data.volumeValue)
+            : null,
+        volumeUnit: finalVolumeUnit || null,
+        masterTransportDoc: data?.masterTransportDoc || null,
+        houseTransportDoc: data?.houseTransportDoc || null,
+        incoterm: data?.incoterm || null,
+        modality: data?.modality || null,
+        voyage: data?.voyage || null,
+        opType: data?.opType || null,
+        clientId: data?.clientId,
+        statusId: data?.statusId,
+        carrierId: data?.carrierId || null,
+        agentsId: selectedAgents || [],
+        comment: !data?.comment
+          ? null
+          : {
+              author: null,
+              content: data.comment,
+            },
+      });
 
-      // const newOperation = { op_id: "123" };
+      toast("The operation has been created successfully.");
 
-      // toast("The operation has been created successfully.");
-
-      // router.push(`/operations/${newOperation.op_id}`);
+      router.push(`/operations/${newOperation.opsFileId}`);
     } catch (error) {
       toast(`Failed to create the operation. ${error}`);
     }
@@ -460,7 +470,7 @@ export default function NewOperationPage() {
                             }
                           >
                             <SelectTrigger id={field.name}>
-                              <SelectValue placeholder="Select unit type" />
+                              <SelectValue placeholder="Select unit" />
                             </SelectTrigger>
 
                             <SelectContent>

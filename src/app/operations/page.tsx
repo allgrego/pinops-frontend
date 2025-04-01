@@ -3,11 +3,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
-import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
   DropdownMenu,
@@ -31,18 +31,21 @@ import {
   TooltipTrigger,
 } from "@/core/components/ui/tooltip";
 import useDialog from "@/core/hooks/useDialog";
+import { shortUUID } from "@/core/lib/misc";
+import OpsStatusBadge from "@/modules/ops_files/components/OpsStatusBadge/OpsStatusBadge";
 import {
   deleteOpsFile,
   getAllOpsFiles,
   getOpsTypeIcon,
   getOpsTypeName,
 } from "@/modules/ops_files/lib/ops_files";
-import {
-  OperationStatuses,
-  OpsFile,
-} from "@/modules/ops_files/types/ops_files.types";
+import { OpsFile } from "@/modules/ops_files/types/ops_files.types";
+import { formatDate } from "@/core/lib/dates";
+
+const DEFAULT_MISSING_DATA_TAG = "- -";
 
 export default function OperationsPage() {
+  const router = useRouter();
   /**
    * - - - Ops files fetching
    */
@@ -141,23 +144,9 @@ export default function OperationsPage() {
     }
   };
 
-  const getStatusColor = (statusId: number) => {
-    switch (statusId) {
-      case OperationStatuses.OPENED:
-        return "bg-blue-100 text-blue-800";
-      case OperationStatuses.IN_TRANSIT:
-        return "bg-yellow-100 text-yellow-800";
-      case OperationStatuses.ON_DESTINATION:
-        return "bg-green-100 text-green-800";
-      case OperationStatuses.IN_WAREHOUSE:
-        return "bg-purple-100 text-purple-800";
-      case OperationStatuses.PREALERTED:
-        return "bg-gray-100 text-gray-800";
-      case OperationStatuses.CLOSED:
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  const openOperation = (opId: string) => {
+    const url = `/operations/${opId}`;
+    router.push(url);
   };
 
   return (
@@ -196,12 +185,12 @@ export default function OperationsPage() {
             <TableRow>
               <TableHead>ID</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Origin</TableHead>
               <TableHead>Destination</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>ETA</TableHead>
+              <TableHead>Cargo</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -227,15 +216,23 @@ export default function OperationsPage() {
             ) : (
               filteredOpsFiles.map((operation) => (
                 <TableRow key={operation.opsFileId} className="text-xs">
-                  <TableCell className="">
-                    {operation?.opsFileId?.substring(0, 8)?.toUpperCase()}
+                  <TableCell
+                    className="cursor-pointer"
+                    onClick={() => openOperation(operation.opsFileId)}
+                  >
+                    {shortUUID(operation?.opsFileId || "")}
                   </TableCell>
 
-                  <TableCell className="">
+                  <TableCell
+                    className=""
+                    onClick={() => openOperation(operation.opsFileId)}
+                  >
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
-                          {getOpsTypeIcon(operation?.opType || "")}
+                          <Link href={`/operations/${operation.opsFileId}`}>
+                            {getOpsTypeIcon(operation?.opType || "")}
+                          </Link>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs">
@@ -245,31 +242,43 @@ export default function OperationsPage() {
                       </Tooltip>
                     </TooltipProvider>
                   </TableCell>
+
                   <TableCell>
-                    {operation.originLocation}, {operation.originCountry}
-                  </TableCell>
-                  <TableCell>
-                    {operation.destinationLocation},{" "}
-                    {operation.destinationCountry}
-                  </TableCell>
-                  <TableCell>{operation.cargoDescription}</TableCell>
-                  <TableCell>{operation.client.name}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={getStatusColor(operation.status.statusId)}
-                    >
+                    <OpsStatusBadge statusId={operation.status.statusId}>
                       {operation.status.statusName}
-                    </Badge>
+                    </OpsStatusBadge>
+                  </TableCell>
+
+                  <TableCell>{operation.client.name}</TableCell>
+
+                  <TableCell>
+                    {[
+                      operation?.originLocation || "",
+                      operation?.originCountry || "",
+                    ]
+                      // Remove empty ones
+                      .filter((l) => l.trim())
+                      .join(", ") || DEFAULT_MISSING_DATA_TAG}
                   </TableCell>
                   <TableCell>
-                    {operation?.estimatedTimeArrival || "-"}
-                    {/* {operation.estimatedTimeArrival
-                      ? new Date(
-                          operation.estimatedTimeArrival
-                        ).toLocaleDateString()
-                      : "N/A"} */}
+                    {[
+                      operation?.destinationLocation || "",
+                      operation?.destinationCountry || "",
+                    ]
+                      // Remove empty ones
+                      .filter((l) => l.trim())
+                      .join(", ") || DEFAULT_MISSING_DATA_TAG}
                   </TableCell>
+
+                  <TableCell>
+                    {formatDate(
+                      operation?.estimatedTimeArrival,
+                      DEFAULT_MISSING_DATA_TAG
+                    )}
+                  </TableCell>
+
+                  <TableCell>{operation.cargoDescription}</TableCell>
+
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

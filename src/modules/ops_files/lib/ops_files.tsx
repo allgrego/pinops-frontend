@@ -10,6 +10,9 @@ import {
   OpsFile,
   OpsFileBackend,
   OpsFileComment,
+  OpsFileCommentBackend,
+  OpsfileCommentCreate,
+  OpsfileCommentCreateBackend,
   OpsFileCreate,
   OpsFileCreateBackend,
   OpsFileUpdate,
@@ -42,8 +45,8 @@ export type CargoUnitType = (typeof CargoUnitTypes)[CargoUnitTypeKey];
  *  - - - Gross weight units options
  */
 export const WeightUnits = {
-  KG: "unit",
-  LB: "box",
+  KG: "kg",
+  LB: "lb",
   // Add others here
 } as const;
 
@@ -137,6 +140,7 @@ export const serializeOpsFile = (opFile: OpsFileBackend): OpsFile => {
           author: commentBackend?.author,
           content: commentBackend?.content,
           opsFileId: commentBackend?.op_id,
+          createdAt: commentBackend?.created_at,
         };
 
         return comment;
@@ -223,6 +227,41 @@ export const getAllOpsFiles = async (): Promise<OpsFile[]> => {
 };
 
 /**
+ * Get ops file by id
+ *
+ * @return {OpsFile | null} Ops file data if valid ID. Otherwise, null
+ */
+export const getOpsFile = async (id: string): Promise<OpsFile | null> => {
+  try {
+    const url = `${BACKEND_BASE_URL}/ops/${id}`;
+
+    const response = await fetch(url);
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: OpsFileBackend | undefined = await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    // Transform into internal schema
+    const opsFiles: OpsFile = serializeOpsFile(jsonResponse);
+
+    return opsFiles;
+  } catch (error) {
+    console.error("Failure getting all ops files", error);
+    throw error;
+  }
+};
+
+/**
  * Create a new ops file
  *
  * @param {OpsFileCreate} newClientData
@@ -267,6 +306,7 @@ export const createOpsFile = async (
       incoterm: newOpsFileData?.incoterm,
       modality: newOpsFileData?.modality,
       voyage: newOpsFileData?.voyage,
+      comment: newOpsFileData?.comment,
     };
 
     const url = `${BACKEND_BASE_URL}/ops`;
@@ -411,21 +451,123 @@ export const deleteOpsFile = async (opsFileId: string): Promise<boolean> => {
 };
 
 /**
+ * Create a new ops file comment
+ *
+ * @param {OpsFileCreate} newClientData
+ *
+ * @return {Client}
+ */
+export const createOpsFileComment = async (
+  newCommentData: OpsfileCommentCreate
+): Promise<OpsFileComment> => {
+  try {
+    if (!newCommentData) throw new Error("Data not found");
+
+    if (!newCommentData?.content) throw new Error("Comment content not found");
+
+    const opsFileId = newCommentData?.opsFileid;
+
+    if (!opsFileId) throw new Error("Operation ID not found");
+
+    // Transform payload into backend schema
+    const backendPayload: OpsfileCommentCreateBackend = {
+      op_id: opsFileId,
+      author: newCommentData?.author,
+      content: newCommentData?.content,
+    };
+
+    const url = `${BACKEND_BASE_URL}/ops/comments/`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(backendPayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: OpsFileCommentBackend | undefined =
+      await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    // Transform response into internal schema
+    const newComment: OpsFileComment = {
+      commentId: jsonResponse?.comment_id,
+      opsFileId: jsonResponse?.op_id,
+      author: jsonResponse?.author,
+      content: jsonResponse?.content,
+      createdAt: jsonResponse?.created_at,
+    };
+
+    return newComment;
+  } catch (error) {
+    console.error("Failure creating an ops file comment", error);
+    return Promise.reject(`${error}`);
+  }
+};
+
+/**
+ * Delete an ops file
+ *
+ * @param {string} opsFileId
+ *
+ * @return {{ ok: boolean }}
+ */
+export const deleteOpsFileComment = async (
+  commentId: string
+): Promise<boolean> => {
+  try {
+    if (!commentId) throw new Error("Comment ID not found");
+
+    const url = `${BACKEND_BASE_URL}/ops/comments/${commentId}`;
+
+    const response = await fetch(url, {
+      method: "DELETE",
+    });
+
+    // TODO validate 404 response
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: { ok: boolean } | undefined = await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    return jsonResponse?.ok || false;
+  } catch (error) {
+    console.error("Failure deleting an ops file comment", error);
+    return Promise.reject(`${error}`);
+  }
+};
+
+/**
  * Icon for Operation type
  *
  * @param {string} type
  *
  * @return {JSX.Element}
  */
-export const getOpsTypeIcon = (type: string) => {
+export const getOpsTypeIcon = (
+  type: string,
+  IconProps?: { className?: string }
+) => {
   const icons: Record<OperationType, JSX.Element> = {
-    [OperationTypes.MARITIME]: <Ship />,
-    [OperationTypes.AIR]: <Plane />,
-    [OperationTypes.ROAD]: <Truck />,
-    [OperationTypes.TRAIN]: <Train />,
+    [OperationTypes.MARITIME]: <Ship {...IconProps} />,
+    [OperationTypes.AIR]: <Plane {...IconProps} />,
+    [OperationTypes.ROAD]: <Truck {...IconProps} />,
+    [OperationTypes.TRAIN]: <Train {...IconProps} />,
   };
 
-  return icons?.[type as OperationType] || <HelpCircle />;
+  return icons?.[type as OperationType] || <HelpCircle {...IconProps} />;
 };
 
 /**
@@ -435,7 +577,7 @@ export const getOpsTypeIcon = (type: string) => {
  *
  * @return {string}
  */
-export const getOpsTypeName = (type: string) => {
+export const getOpsTypeName = (type: string, defaultValue?: string) => {
   const names: Record<OperationType, string> = {
     [OperationTypes.MARITIME]: "Maritime",
     [OperationTypes.AIR]: "Air",
@@ -443,7 +585,7 @@ export const getOpsTypeName = (type: string) => {
     [OperationTypes.TRAIN]: "Train",
   };
 
-  return names?.[type as OperationType] || type;
+  return names?.[type as OperationType] || defaultValue || type;
 };
 
 /**

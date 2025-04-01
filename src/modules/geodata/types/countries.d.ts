@@ -1,0 +1,21 @@
+export type Country = {
+  idCountry: number;
+  countryName: string;
+  countryIso3: string;
+  countryIso2: string;
+  numericCode: number;
+  phoneCode: string;
+  capital: string;
+  currency: string;
+  currencyName: string;
+  currencySymbol: string;
+  topLevelDomain: string;
+  nativeName: string;
+  region: string;
+  subregion: string;
+  latitude: number;
+  longitude: number;
+  emoji: string;
+  emojiU: string;
+  active: boolean;
+};
