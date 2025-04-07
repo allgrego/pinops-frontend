@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, MapPin, Plane, Ship, Truck } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import type React from "react";
@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
+  const params = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +37,12 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
 
+      const nextUrl = !params.has("url")
+        ? "/app/operations"
+        : String(params.get("url") || "");
+
       if (result.success) {
-        router.push("/app/operations");
+        router.push(nextUrl);
         return;
       }
 
@@ -77,6 +82,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
+                disabled={isLoading || isAuthenticated}
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -99,6 +105,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 value={password}
+                disabled={isLoading || isAuthenticated}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />

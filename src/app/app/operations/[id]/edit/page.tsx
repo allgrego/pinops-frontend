@@ -1,21 +1,55 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable @next/next/no-async-client-component */
 "use client";
 
-import type React from "react";
+import { useMutation } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  CalendarArrowDown,
+  CalendarArrowUp,
+  Check,
+  ChevronsUpDown,
+  MapPin,
+  Trash,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Controller, SubmitHandler, useForm } from "react-hook-form";
+import { toast } from "sonner";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
+import { Badge } from "@/core/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/core/components/ui/breadcrumb";
 import { Button } from "@/core/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/core/components/ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/core/components/ui/command";
 import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
-import { Textarea } from "@/core/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/core/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -23,175 +57,339 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/core/components/ui/select";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Separator } from "@/core/components/ui/separator";
+import { Textarea } from "@/core/components/ui/textarea";
+import useDialog from "@/core/hooks/useDialog";
+import { shortUUID } from "@/core/lib/misc";
+import { cn } from "@/core/lib/utils";
+import { useAuth } from "@/modules/auth/lib/auth";
+import useClients from "@/modules/hooks/useClients";
+import useOpsFile from "@/modules/ops_files/hooks/useOpsFile";
+import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
-  getOperation,
-  updateOperation,
-  getClients,
-  getCarriers,
-  getAgents,
-  statuses,
-  type Client,
-  type Carrier,
-  type Agent,
-  type TradeOperation,
-} from "@/core/lib/data";
-import { toast } from "sonner";
+  allCargoUnitTypes,
+  allOperationStatuses,
+  allOperationTypes,
+  allVolumeUnits,
+  allWeightUnits,
+  deleteOpsFile,
+  getCargoUnitTypesName,
+  getOpsStatusName,
+  getOpsTypeName,
+  getVolumeUnitName,
+  getWeightUnitName,
+  updateOpsFile,
+  VolumeUnits,
+  WeightUnits,
+} from "@/modules/ops_files/lib/ops_files";
+import {
+  OperationStatuses,
+  OperationType,
+  OperationTypes,
+  OpsFile,
+  OpsFileUpdate,
+} from "@/modules/ops_files/types/ops_files.types";
+import useAgents from "@/modules/providers/hooks/useAgents";
+import useCarriers from "@/modules/providers/hooks/useCarriers";
+import { numberOrNull } from "@/core/lib/numbers";
 
-type Params = Promise<{ id: string }>
+type EditOperationFormData = Omit<OpsFileUpdate, "agentsId">;
 
-export default async function EditOperationPage(props: { params: Params }) {
-  const  params  = await props.params;
+const CUSTOM_UNIT_KEY = "other";
+const NONE_SELECT_OPTION = "none";
+const DEFAULT_OPS_STATUS = OperationStatuses.OPENED;
+const DEFAULT_OPS_TYPE = OperationTypes.MARITIME;
+
+export default function EditOperationPage() {
+  const params = useParams();
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [operation, setOperation] = useState<TradeOperation | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
-    origin_location: "",
-    origin_country: "",
-    destination_location: "",
-    destination_country: "",
-    estimated_time_departure: "",
-    actual_time_departure: "",
-    estimated_time_arrival: "",
-    actual_time_arrival: "",
-    cargo_description: "",
-    units_quantity: "",
-    units_type: "",
-    gross_weight_value: "",
-    gross_weight_unit: "Kg",
-    volume_value: "",
-    volume_unit: "m³",
-    master_transport_doc: "",
-    house_transport_doc: "",
-    incoterm: "CIF",
-    modality: "FCL",
-    voyage: "",
-    client_id: "",
-    status_id: "1",
-    carrier_id: "",
-    agent_id: "",
+  /**
+   * - - - Auth
+   */
+  const { isAuthenticated } = useAuth();
+
+  /**
+   * - - - - Operation file logic
+   */
+
+  const operationId = String(params?.id || "");
+
+  const operationData = useOpsFile(operationId, {
+    queryProps: { enabled: !!operationId && isAuthenticated },
   });
 
+  const { operation, query: operationQuery } = operationData;
+
+  const operationIsSuccess = operationQuery.isSuccess;
+
+  /**
+   * Refetch the operation data
+   */
+  const reloadOperation = async () => {
+    await operationData.query.refetch();
+  };
+
+  /**
+   * - - - Clients fetcihng
+   */
+  const clientsData = useClients({
+    queryProps: { enabled: !!operation && isAuthenticated },
+  });
+  const { clients } = clientsData;
+
+  /**
+   * - - - Carriers fetcihng
+   */
+  const carriersData = useCarriers({
+    queryProps: { enabled: !!operation && isAuthenticated },
+  });
+  const { carriers } = carriersData;
+
+  /**
+   * - - - Agents fetcihng
+   */
+  const agentsData = useAgents({
+    queryProps: { enabled: !!operation && isAuthenticated },
+  });
+  const { agents } = agentsData;
+
+  /**
+   * - - - - Form logic
+   */
+
+  const formData = useForm<EditOperationFormData>({
+    defaultValues: {
+      clientId: operation?.client?.clientId,
+      opType: (operation?.opType as OperationType) || DEFAULT_OPS_TYPE,
+      statusId: operation?.status?.statusId || DEFAULT_OPS_STATUS,
+      cargoDescription: operation?.cargoDescription,
+      modality: operation?.modality,
+      carrierId: operation?.carrier?.carrierId,
+      unitsQuantity: operation?.unitsQuantity,
+      unitsType: operation?.unitsType,
+      grossWeightValue: operation?.grossWeightValue,
+      grossWeightUnit: operation?.grossWeightUnit || WeightUnits.KG,
+      volumeValue: operation?.volumeValue,
+      volumeUnit: operation?.volumeUnit || VolumeUnits.M3,
+      masterTransportDoc: operation?.masterTransportDoc,
+      houseTransportDoc: operation?.houseTransportDoc,
+      originLocation: operation?.originLocation,
+      originCountry: operation?.originCountry,
+      destinationLocation: operation?.destinationLocation,
+      destinationCountry: operation?.destinationCountry,
+      estimatedTimeDeparture: operation?.estimatedTimeDeparture,
+      actualTimeDeparture: operation?.actualTimeDeparture,
+      estimatedTimeArrival: operation?.estimatedTimeArrival,
+      actualTimeArrival: operation?.actualTimeArrival,
+      incoterm: operation?.incoterm,
+      voyage: operation?.voyage,
+    },
+  });
+
+  const [customWeightUnit, setCustomWeightUnit] = useState("");
+  const [customVolumeUnit, setCustomVolumeUnit] = useState("");
+  const [customUnitsType, setCustomUnitsType] = useState("");
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+
+  const [unitsType, volumeUnit, grossWeightUnit, operationType, incoterm] =
+    formData.watch([
+      "unitsType",
+      "volumeUnit",
+      "grossWeightUnit",
+      "opType",
+      "incoterm",
+    ]);
+
+  function handleSelectChange(name: string, value: string | number | null) {
+    formData.setValue(name as keyof EditOperationFormData, value);
+  }
+
+  /**
+   * Toggle selected agent
+   */
+  const toggleAgent = (agentId: string) => {
+    setSelectedAgents((prev) =>
+      prev.includes(agentId)
+        ? prev.filter((id) => id !== agentId)
+        : [...prev, agentId]
+    );
+  };
+
+  const loading =
+    operationData.isLoading ||
+    clientsData.isLoading ||
+    carriersData.isLoading ||
+    agentsData.isLoading;
+
+  /**
+   * Update the selected agents when operation changes
+   */
   useEffect(() => {
-    setClients(getClients());
-    setCarriers(getCarriers());
-    setAgents(getAgents());
+    if (!operation || !operationIsSuccess) return;
 
-    const op = getOperation(params.id);
-    if (op) {
-      setOperation(op);
-      setFormData({
-        origin_location: op.origin_location,
-        origin_country: op.origin_country,
-        destination_location: op.destination_location,
-        destination_country: op.destination_country,
-        estimated_time_departure: op.estimated_time_departure || "",
-        actual_time_departure: op.actual_time_departure || "",
-        estimated_time_arrival: op.estimated_time_arrival || "",
-        actual_time_arrival: op.actual_time_arrival || "",
-        cargo_description: op.cargo_description,
-        units_quantity: op.units_quantity?.toString() || "",
-        units_type: op.units_type || "",
-        gross_weight_value: op.gross_weight_value?.toString() || "",
-        gross_weight_unit: op.gross_weight_unit || "Kg",
-        volume_value: op.volume_value?.toString() || "",
-        volume_unit: op.volume_unit || "m³",
-        master_transport_doc: op.master_transport_doc || "",
-        house_transport_doc: op.house_transport_doc || "",
-        incoterm: op.incoterm || "CIF",
-        modality: op.modality || "FCL",
-        voyage: op.voyage || "",
-        client_id: op.client.client_id,
-        status_id: op.status.status_id.toString(),
-        carrier_id: op.carrier?.carrier_id || "",
-        agent_id: op.agent?.agent_id || "",
-      });
-    }
-    setLoading(false);
-  }, [params.id]);
+    setSelectedAgents(operation?.agents?.map((a) => a.agentId) || []);
+  }, [operation, operationIsSuccess]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  /**
+   * - - - - Update operation logic
+   */
+
+  const editOperationMutation = useMutation<OpsFile, Error, OpsFileUpdate>({
+    mutationKey: [operationId, "UpdateOperation"],
+    mutationFn: async (newOpsFileData) => {
+      return await updateOpsFile(operationId, newOpsFileData);
+    },
+    onError(error) {
+      toast(`Unable to edit operation. ${error}`);
+    },
+  });
+
+  console.log("opetaion", operation);
+
+  const handleSubmit: SubmitHandler<EditOperationFormData> = async (
+    data,
+    e
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    e?.preventDefault();
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!operation) return;
+    if (!operation) {
+      toast("Operation data not found. Unable to save changes");
+      return;
+    }
 
     try {
-      // Find the selected client, carrier, agent
-      const client = clients.find((c) => c.client_id === formData.client_id);
-      const carrier = formData.carrier_id
-        ? carriers.find((c) => c.carrier_id === formData.carrier_id)
-        : null;
-      const agent = formData.agent_id
-        ? agents.find((a) => a.agent_id === formData.agent_id)
-        : null;
-      const status = statuses.find(
-        (s) => s.status_id.toString() === formData.status_id
-      );
-
-      if (!client || !status) {
-        toast("Client and status are required.");
+      if (!data?.clientId) {
+        toast("Client is required.");
         return;
       }
 
+      if (!data?.statusId) {
+        toast("Status is required.");
+        return;
+      }
+
+      // Determine the final values
+      const finalGrossWeightValue = numberOrNull(data?.grossWeightValue);
+      const finalVolumeValue = numberOrNull(data?.volumeUnit);
+      const finalUnitValue = numberOrNull(data?.unitsQuantity);
+      // Determine the final units
+      // Determine the final units
+      const finalWeightUnit =
+        data.grossWeightUnit === CUSTOM_UNIT_KEY
+          ? customWeightUnit
+          : data.grossWeightUnit === NONE_SELECT_OPTION
+          ? null
+          : data.grossWeightUnit;
+      const finalVolumeUnit =
+        data.volumeUnit === CUSTOM_UNIT_KEY
+          ? customVolumeUnit
+          : data.volumeUnit === NONE_SELECT_OPTION
+          ? null
+          : data.volumeUnit;
+      const finalUnitsType =
+        data.unitsType === CUSTOM_UNIT_KEY
+          ? customUnitsType
+          : data.unitsType === NONE_SELECT_OPTION
+          ? null
+          : data.unitsType;
+
+      const finalIncoterm =
+        data.incoterm === NONE_SELECT_OPTION ? null : data.incoterm;
+
+      const finalCarrier =
+        data.carrierId === NONE_SELECT_OPTION ? null : data.carrierId;
+
       // Update the operation
-      const updatedOperation = updateOperation(params.id, {
-        origin_location: formData.origin_location,
-        origin_country: formData.origin_country,
-        destination_location: formData.destination_location,
-        destination_country: formData.destination_country,
-        estimated_time_departure: formData.estimated_time_departure || null,
-        actual_time_departure: formData.actual_time_departure || null,
-        estimated_time_arrival: formData.estimated_time_arrival || null,
-        actual_time_arrival: formData.actual_time_arrival || null,
-        cargo_description: formData.cargo_description,
-        units_quantity: formData.units_quantity
-          ? Number(formData.units_quantity)
-          : null,
-        units_type: formData.units_type || null,
-        gross_weight_value: formData.gross_weight_value
-          ? Number(formData.gross_weight_value)
-          : null,
-        gross_weight_unit: formData.gross_weight_unit || null,
-        volume_value: formData.volume_value
-          ? Number(formData.volume_value)
-          : null,
-        volume_unit: formData.volume_unit || null,
-        master_transport_doc: formData.master_transport_doc || null,
-        house_transport_doc: formData.house_transport_doc || null,
-        incoterm: formData.incoterm || null,
-        modality: formData.modality || null,
-        voyage: formData.voyage || null,
-        client,
-        status,
-        carrier,
-        agent,
+      const updatedOperation = await editOperationMutation.mutateAsync({
+        // Location
+        originLocation: data?.originLocation?.trim() || null,
+        originCountry: data.originCountry?.trim() || null,
+        destinationLocation: data?.destinationLocation || null,
+        destinationCountry: data?.destinationCountry || null,
+        // Schedules
+        estimatedTimeDeparture: data?.estimatedTimeDeparture || null,
+        actualTimeDeparture: data?.actualTimeDeparture || null,
+        estimatedTimeArrival: data?.estimatedTimeArrival || null,
+        actualTimeArrival: data?.actualTimeArrival || null,
+        cargoDescription: data?.cargoDescription,
+        unitsQuantity: finalUnitValue,
+        unitsType: finalUnitsType || null, // The unit type could be regardless of missing value
+        grossWeightValue: finalGrossWeightValue,
+        grossWeightUnit:
+          finalGrossWeightValue === null
+            ? null // Remove unit when no value
+            : finalWeightUnit || null,
+        volumeValue: finalVolumeValue,
+        volumeUnit:
+          finalVolumeValue === null
+            ? null // Remove unit when no value
+            : finalVolumeUnit || null,
+        masterTransportDoc: data?.masterTransportDoc || null,
+        houseTransportDoc: data?.houseTransportDoc || null,
+        incoterm: finalIncoterm || null,
+        modality: data?.modality || null,
+        voyage: data?.voyage || null,
+        opType: data?.opType,
+        clientId: data?.clientId,
+        statusId: data?.statusId,
+        carrierId: finalCarrier || null,
+        agentsId: selectedAgents || [],
       });
 
       if (updatedOperation) {
         toast("The operation has been updated successfully.");
 
-        router.push(`/app/operations/${params.id}`);
+        await reloadOperation();
+
+        await router.push(`/app/operations/${operationId}`);
       } else {
         toast("Failed to update the operation.");
       }
     } catch (error) {
       toast(`Failed to update the operation. ${error}`);
+    }
+  };
+
+  /**
+   *  - - - - Delete Operation logic
+   */
+
+  // Mutation
+  const deleteOpsFileMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["DeleteOperationMutation"],
+    mutationFn: async (opFileId) => await deleteOpsFile(opFileId),
+    onError(error) {
+      toast(`Failure deleting operation. ${error}`);
+    },
+  });
+
+  const { isOpen: isDeleteOpsFileOpen, setIsOpen: setIsDeleteOpsFileOpen } =
+    useDialog();
+
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    useState<string>("");
+
+  const openDeleteConfirmationDialog = () => {
+    setDeleteConfirmationText("");
+    setIsDeleteOpsFileOpen(true);
+  };
+
+  const handleDeleteOpsFile = async (id: string) => {
+    if (!id) {
+      toast("Unable to delete operation. No ID found");
+      return;
+    }
+
+    const success = await deleteOpsFileMutation.mutateAsync(id);
+
+    if (success) {
+      // Close modal
+      setIsDeleteOpsFileOpen(false);
+      toast("The operation has been deleted successfully.");
+      router.push("/app/operations");
+    } else {
+      toast("Failed to delete the operation.");
     }
   };
 
@@ -220,135 +418,494 @@ export default async function EditOperationPage(props: { params: Params }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href={`/operations/${params.id}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Edit Operation</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/app/operations/${params.id}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Edit operation
+            </h1>
+            <p className="text-muted-foreground">
+              Ensure your operation is up to date
+            </p>
+          </div>
+        </div>
+
+        {/* Other actions */}
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={openDeleteConfirmationDialog}
+            className="cursor-pointer"
+          >
+            <Trash className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+
+          {/* Delete ops file confirmation dialog */}
+          <DeleteConfirmationDialog
+            DialogProps={{
+              open: isDeleteOpsFileOpen,
+              onOpenChange: setIsDeleteOpsFileOpen,
+            }}
+            title={"Operation delete"}
+            description={"Delete operation information"}
+            body={
+              <div className="">
+                <div className="">
+                  You are about to delete the current operation permanently.
+                  This cannot be undone.
+                </div>
+                <div className="mt-4">
+                  <span className="text-xs font-light">
+                    Operation ID: {operationId}
+                  </span>
+                </div>
+              </div>
+            }
+            confirmationText={deleteConfirmationText}
+            updateConfirmationText={(val) => setDeleteConfirmationText(val)}
+            onDelete={() => {
+              handleDeleteOpsFile(operationId);
+            }}
+            onCancel={() => setIsDeleteOpsFileOpen(false)}
+            isDeleting={deleteOpsFileMutation.isPending}
+          />
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <div className="">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={`/app/operations`}>Operations</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={`/app/operations/${operationId}`}>
+                  {shortUUID(operationId)}
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Edit</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
+      <form onSubmit={formData.handleSubmit(handleSubmit)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
+
+              <CardDescription className="text-xs">
+                Non optional data is marked
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="origin_location">Origin Location</Label>
-                  <Input
-                    id="origin_location"
-                    name="origin_location"
-                    value={formData.origin_location}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="origin_country">Origin Country</Label>
-                  <Input
-                    id="origin_country"
-                    name="origin_country"
-                    value={formData.origin_country}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="statusId">
+                  Status <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  control={formData.control}
+                  name="statusId"
+                  render={({ field }) => {
+                    return (
+                      <>
+                        <Select
+                          value={String(field.value)}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, Number(value))
+                          }
+                          disabled={
+                            clientsData.isLoading || clientsData.isError
+                          }
+                        >
+                          <SelectTrigger
+                            id={field.name}
+                            disabled={
+                              clientsData.isLoading || clientsData.isError
+                            }
+                          >
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {!allOperationStatuses.length
+                              ? null
+                              : allOperationStatuses.map((statusId) => (
+                                  <SelectItem
+                                    value={String(statusId)}
+                                    key={statusId}
+                                  >
+                                    {getOpsStatusName(statusId)}
+                                  </SelectItem>
+                                ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    );
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="clientId">
+                  Client <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  control={formData.control}
+                  name="clientId"
+                  render={({ field }) => {
+                    return (
+                      <>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={
+                            clientsData.isLoading || clientsData.isError
+                          }
+                        >
+                          <SelectTrigger
+                            id={field.name}
+                            disabled={
+                              clientsData.isLoading || clientsData.isError
+                            }
+                          >
+                            <SelectValue placeholder="Select client" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {!clients.length
+                              ? null
+                              : clients.map((client) => (
+                                  <SelectItem
+                                    value={client.clientId}
+                                    key={client.clientId}
+                                  >
+                                    {client.name}
+                                  </SelectItem>
+                                ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    );
+                  }}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="destination_location">
-                    Destination Location
+                <div className="space-y-2 col-span-1">
+                  <Label htmlFor="operation_type">
+                    Type <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="destination_location"
-                    name="destination_location"
-                    value={formData.destination_location}
-                    onChange={handleChange}
-                    required
+                  <Controller
+                    control={formData.control}
+                    name="opType"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) =>
+                          handleSelectChange(field.name, value)
+                        }
+                      >
+                        <SelectTrigger id="operation_type">
+                          <SelectValue placeholder="Select operation type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!allOperationTypes.length
+                            ? null
+                            : allOperationTypes.map((type) => (
+                                <SelectItem value={type} key={type}>
+                                  {getOpsTypeName(type)}
+                                </SelectItem>
+                              ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="destination_country">
-                    Destination Country
-                  </Label>
+                  <Label htmlFor="modality">Modality</Label>
                   <Input
-                    id="destination_country"
-                    name="destination_country"
-                    value={formData.destination_country}
-                    onChange={handleChange}
-                    required
+                    id="modality"
+                    {...formData.register("modality")}
+                    placeholder="FCL, LCL, D2D"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cargo_description">Cargo Description</Label>
+                <Label htmlFor="cargo_description">
+                  Cargo description <span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="cargo_description"
-                  name="cargo_description"
-                  value={formData.cargo_description}
-                  onChange={handleChange}
+                  {...formData.register("cargoDescription", { required: true })}
                   required
                 />
               </div>
 
+              <Separator className="my-4" />
+
+              <div className="space-y-2">
+                <Label>International agents</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedAgents.length > 0
+                        ? `${selectedAgents.length} agent${
+                            selectedAgents.length > 1 ? "s" : ""
+                          } selected`
+                        : "Select agents..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search agents..." />
+                      <CommandList>
+                        <CommandEmpty>No agent found.</CommandEmpty>
+                        <CommandGroup>
+                          {agents.map((agent) => (
+                            <CommandItem
+                              key={agent.agentId}
+                              value={agent.agentId}
+                              onSelect={() => toggleAgent(agent.agentId)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedAgents.includes(agent.agentId)
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {agent.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedAgents.length > 0 && (
+                  <div className="mt-2">
+                    <div className="flex flex-wrap gap-2">
+                      {selectedAgents.map((agentId) => {
+                        const agent = agents.find((a) => a.agentId === agentId);
+                        return agent ? (
+                          <Badge
+                            key={agent.agentId}
+                            variant="secondary"
+                            className="flex items-center gap-1 cursor-default"
+                          >
+                            {agent.name}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-transparent cursor-pointer"
+                              onClick={() => toggleAgent(agent.agentId)}
+                            >
+                              <X className="h-3 w-3" />
+                              <span className="sr-only">Remove</span>
+                            </Button>
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="carrierId">Carrier</Label>
+                <Controller
+                  control={formData.control}
+                  name="carrierId"
+                  render={({ field }) => {
+                    return (
+                      <>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={
+                            carriersData.isLoading || carriersData.isError
+                          }
+                        >
+                          <SelectTrigger
+                            id={field.name}
+                            disabled={
+                              carriersData.isLoading || carriersData.isError
+                            }
+                          >
+                            <SelectValue placeholder="Select carrier" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value={NONE_SELECT_OPTION}>
+                              None
+                            </SelectItem>
+                            {!carriers.length
+                              ? null
+                              : carriers.map((carrier) => (
+                                  <SelectItem
+                                    value={carrier.carrierId}
+                                    key={carrier.carrierId}
+                                  >
+                                    {carrier.name}
+                                  </SelectItem>
+                                ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    );
+                  }}
+                />
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Cargo specifications */}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="units_quantity">Units Quantity</Label>
+                  <Label htmlFor="units_quantity">Units quantity</Label>
                   <Input
                     id="units_quantity"
-                    name="units_quantity"
                     type="number"
-                    value={formData.units_quantity}
-                    onChange={handleChange}
+                    {...formData.register("unitsQuantity")}
+                    placeholder="12"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="units_type">Units Type</Label>
-                  <Input
-                    id="units_type"
-                    name="units_type"
-                    value={formData.units_type}
-                    onChange={handleChange}
-                    placeholder="pallets, containers, boxes..."
+                  <Label htmlFor="unitsType">Units type</Label>
+                  <Controller
+                    control={formData.control}
+                    name="unitsType"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {!allCargoUnitTypes.length
+                                ? null
+                                : allCargoUnitTypes.map((unitType) => (
+                                    <SelectItem value={unitType} key={unitType}>
+                                      {getCargoUnitTypesName(unitType)}
+                                    </SelectItem>
+                                  ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </>
+                      );
+                    }}
                   />
+                  {/* Custom unit input */}
+                  {unitsType === CUSTOM_UNIT_KEY && (
+                    <Input
+                      className="mt-2"
+                      placeholder="Enter unit type"
+                      value={customUnitsType}
+                      onChange={(e) => setCustomUnitsType(e.target.value)}
+                    />
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gross_weight_value">Gross Weight</Label>
+                  <Label htmlFor="gross_weight_value">Gross weight</Label>
                   <Input
                     id="gross_weight_value"
-                    name="gross_weight_value"
+                    {...formData.register("grossWeightValue")}
+                    placeholder="12.03"
                     type="number"
                     step="0.01"
-                    value={formData.gross_weight_value}
-                    onChange={handleChange}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gross_weight_unit">Weight Unit</Label>
-                  <Select
-                    value={formData.gross_weight_unit}
-                    onValueChange={(value) =>
-                      handleSelectChange("gross_weight_unit", value)
-                    }
-                  >
-                    <SelectTrigger id="gross_weight_unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Kg">Kg</SelectItem>
-                      <SelectItem value="Lb">Lb</SelectItem>
-                      <SelectItem value="Ton">Ton</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="gross_weight_unit">Weight unit</Label>
+
+                  <Controller
+                    control={formData.control}
+                    name="grossWeightUnit"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {!allWeightUnits.length
+                                ? null
+                                : allWeightUnits.map((unit) => (
+                                    <SelectItem value={unit} key={unit}>
+                                      {getWeightUnitName(unit)}
+                                    </SelectItem>
+                                  ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </>
+                      );
+                    }}
+                  />
+                  {/* Custom unit input */}
+                  {grossWeightUnit === CUSTOM_UNIT_KEY && (
+                    <Input
+                      className="mt-2"
+                      placeholder="Enter unit"
+                      value={customWeightUnit}
+                      onChange={(e) => setCustomWeightUnit(e.target.value)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -357,29 +914,61 @@ export default async function EditOperationPage(props: { params: Params }) {
                   <Label htmlFor="volume_value">Volume</Label>
                   <Input
                     id="volume_value"
-                    name="volume_value"
+                    {...formData.register("volumeValue")}
                     type="number"
-                    step="0.01"
-                    value={formData.volume_value}
-                    onChange={handleChange}
+                    step="0.001"
+                    placeholder="2.123"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="volume_unit">Volume Unit</Label>
-                  <Select
-                    value={formData.volume_unit}
-                    onValueChange={(value) =>
-                      handleSelectChange("volume_unit", value)
-                    }
-                  >
-                    <SelectTrigger id="volume_unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="m³">m³</SelectItem>
-                      <SelectItem value="ft³">ft³</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="volumeUnit">Volume unit</Label>
+                  <Controller
+                    control={formData.control}
+                    name="volumeUnit"
+                    render={({ field }) => {
+                      return (
+                        <>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) =>
+                              handleSelectChange(field.name, value)
+                            }
+                          >
+                            <SelectTrigger id={field.name}>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                              <SelectItem value={NONE_SELECT_OPTION}>
+                                None
+                              </SelectItem>
+                              {!allVolumeUnits.length
+                                ? null
+                                : allVolumeUnits.map((unit) => (
+                                    <SelectItem value={unit} key={unit}>
+                                      {getVolumeUnitName(unit)}
+                                    </SelectItem>
+                                  ))}
+                              <SelectItem value={CUSTOM_UNIT_KEY}>
+                                Other
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {volumeUnit === CUSTOM_UNIT_KEY && (
+                            <Input
+                              className="mt-2"
+                              placeholder="Enter unit"
+                              value={customVolumeUnit}
+                              onChange={(e) =>
+                                setCustomVolumeUnit(e.target.value)
+                              }
+                            />
+                          )}
+                        </>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -390,71 +979,130 @@ export default async function EditOperationPage(props: { params: Params }) {
               <CardTitle>Shipping Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Locations */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="origin_location">
+                    <MapPin className="h-4 text-blue-500" />
+                    Origin location
+                  </Label>
+                  <Input
+                    id="origin_location"
+                    {...formData.register("originLocation")}
+                    placeholder="Shangai"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="origin_country">Origin country</Label>
+                  <Input
+                    id="origin_country"
+                    {...formData.register("originCountry")}
+                    placeholder="CN"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="destination_location">
+                    <MapPin className="h-4 text-emerald-500" />
+                    Destination location
+                  </Label>
+                  <Input
+                    id="destination_location"
+                    {...formData.register("destinationLocation")}
+                    placeholder="La Guaira"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="destination_country">
+                    Destination country
+                  </Label>
+                  <Input
+                    id="destination_country"
+                    {...formData.register("destinationCountry")}
+                    placeholder="VE"
+                  />
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estimated_time_departure">
-                    Est. Departure
+                    <CalendarArrowUp className="h-4 text-emerald-500" /> ETD
                   </Label>
                   <Input
                     id="estimated_time_departure"
-                    name="estimated_time_departure"
                     type="date"
-                    value={formData.estimated_time_departure}
-                    onChange={handleChange}
+                    {...formData.register("estimatedTimeDeparture")}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="actual_time_departure">Act. Departure</Label>
-                  <Input
-                    id="actual_time_departure"
-                    name="actual_time_departure"
-                    type="date"
-                    value={formData.actual_time_departure}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimated_time_arrival">Est. Arrival</Label>
+                  <Label htmlFor="estimated_time_arrival">
+                    <CalendarArrowDown className="h-4 text-blue-500" /> ETA
+                  </Label>
                   <Input
                     id="estimated_time_arrival"
-                    name="estimated_time_arrival"
                     type="date"
-                    value={formData.estimated_time_arrival}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="actual_time_arrival">Act. Arrival</Label>
-                  <Input
-                    id="actual_time_arrival"
-                    name="actual_time_arrival"
-                    type="date"
-                    value={formData.actual_time_arrival}
-                    onChange={handleChange}
+                    {...formData.register("estimatedTimeArrival")}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="master_transport_doc">Master Doc</Label>
+                  <Label htmlFor="actual_time_departure">
+                    <CalendarArrowUp className="h-4 text-emerald-500" /> ATD
+                  </Label>
                   <Input
-                    id="master_transport_doc"
-                    name="master_transport_doc"
-                    value={formData.master_transport_doc}
-                    onChange={handleChange}
+                    id="actual_time_departure"
+                    type="date"
+                    {...formData.register("actualTimeDeparture")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="house_transport_doc">House Doc</Label>
+                  <Label htmlFor="actual_time_arrival">
+                    <CalendarArrowDown className="h-4 text-blue-500" /> ATA
+                  </Label>
+                  <Input
+                    id="actual_time_arrival"
+                    type="date"
+                    {...formData.register("actualTimeArrival")}
+                  />
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="master_transport_doc">
+                    {operationType === OperationTypes.MARITIME
+                      ? "MBL"
+                      : operationType === OperationTypes.AIR
+                      ? "MAWB"
+                      : "Master doc"}
+                  </Label>
+                  <Input
+                    id="master_transport_doc"
+                    {...formData.register("masterTransportDoc")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="house_transport_doc">
+                    {operationType === OperationTypes.MARITIME
+                      ? "HBL"
+                      : operationType === OperationTypes.AIR
+                      ? "HAWB"
+                      : "House doc"}
+                  </Label>
                   <Input
                     id="house_transport_doc"
-                    name="house_transport_doc"
-                    value={formData.house_transport_doc}
-                    onChange={handleChange}
+                    {...formData.register("houseTransportDoc")}
                   />
                 </div>
               </div>
@@ -463,7 +1111,7 @@ export default async function EditOperationPage(props: { params: Params }) {
                 <div className="space-y-2">
                   <Label htmlFor="incoterm">Incoterm</Label>
                   <Select
-                    value={formData.incoterm}
+                    value={incoterm || undefined}
                     onValueChange={(value) =>
                       handleSelectChange("incoterm", value)
                     }
@@ -472,34 +1120,14 @@ export default async function EditOperationPage(props: { params: Params }) {
                       <SelectValue placeholder="Select incoterm" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CIF">CIF</SelectItem>
-                      <SelectItem value="FOB">FOB</SelectItem>
-                      <SelectItem value="EXW">EXW</SelectItem>
-                      <SelectItem value="FCA">FCA</SelectItem>
-                      <SelectItem value="CPT">CPT</SelectItem>
-                      <SelectItem value="CIP">CIP</SelectItem>
-                      <SelectItem value="DAP">DAP</SelectItem>
-                      <SelectItem value="DDP">DDP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="modality">Modality</Label>
-                  <Select
-                    value={formData.modality}
-                    onValueChange={(value) =>
-                      handleSelectChange("modality", value)
-                    }
-                  >
-                    <SelectTrigger id="modality">
-                      <SelectValue placeholder="Select modality" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FCL">FCL</SelectItem>
-                      <SelectItem value="LCL">LCL</SelectItem>
-                      <SelectItem value="Air">Air</SelectItem>
-                      <SelectItem value="Road">Road</SelectItem>
-                      <SelectItem value="Rail">Rail</SelectItem>
+                      <SelectItem value={NONE_SELECT_OPTION}>None</SelectItem>
+                      {!allIncoterms.length
+                        ? null
+                        : allIncoterms.map((incot) => (
+                            <SelectItem value={incot} key={incot}>
+                              {incot}
+                            </SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -507,118 +1135,27 @@ export default async function EditOperationPage(props: { params: Params }) {
 
               <div className="space-y-2">
                 <Label htmlFor="voyage">Voyage</Label>
-                <Input
-                  id="voyage"
-                  name="voyage"
-                  value={formData.voyage}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status_id">Status</Label>
-                <Select
-                  value={formData.status_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("status_id", value)
-                  }
-                >
-                  <SelectTrigger id="status_id">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((status) => (
-                      <SelectItem
-                        key={status.status_id}
-                        value={status.status_id.toString()}
-                      >
-                        {status.status_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="client_id">Client</Label>
-                <Select
-                  value={formData.client_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("client_id", value)
-                  }
-                  required
-                >
-                  <SelectTrigger id="client_id">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem
-                        key={client.client_id}
-                        value={client.client_id}
-                      >
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="carrier_id">Carrier</Label>
-                <Select
-                  value={formData.carrier_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("carrier_id", value)
-                  }
-                >
-                  <SelectTrigger id="carrier_id">
-                    <SelectValue placeholder="Select carrier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {carriers.map((carrier) => (
-                      <SelectItem
-                        key={carrier.carrier_id}
-                        value={carrier.carrier_id}
-                      >
-                        {carrier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="agent_id">Agent</Label>
-                <Select
-                  value={formData.agent_id}
-                  onValueChange={(value) =>
-                    handleSelectChange("agent_id", value)
-                  }
-                >
-                  <SelectTrigger id="agent_id">
-                    <SelectValue placeholder="Select agent" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {agents.map((agent) => (
-                      <SelectItem key={agent.agent_id} value={agent.agent_id}>
-                        {agent.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input id="voyage" {...formData.register("voyage")} />
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="mt-6 flex justify-end space-x-4">
-          <Button variant="outline" asChild>
-            <Link href={`/operations/${params.id}`}>Cancel</Link>
+          <Button
+            variant="outline"
+            asChild
+            disabled={editOperationMutation.isPending}
+          >
+            <Link href={`/app/operations/${operationId}`}>Cancel</Link>
           </Button>
-          <Button type="submit">Save Changes</Button>
+          <Button
+            type="submit"
+            loading={editOperationMutation.isPending}
+            disabled={editOperationMutation.isPending}
+          >
+            {editOperationMutation.isPending ? "Saving..." : "Save changes"}
+          </Button>
         </div>
       </form>
     </div>

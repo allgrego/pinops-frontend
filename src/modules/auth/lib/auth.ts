@@ -17,7 +17,7 @@ interface AuthState {
     email: string,
     password: string
   ) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: (callback?: () => void) => void;
 }
 
 export const useAuth = create<AuthState>()(
@@ -40,8 +40,9 @@ export const useAuth = create<AuthState>()(
         return { success: true };
       },
 
-      logout: () => {
+      logout: (callback) => {
         set({ user: null, isAuthenticated: false });
+        callback?.();
       },
     }),
     {

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarArrowDown,
   CalendarArrowUp,
+  Edit,
   MapPin,
   MessageSquare,
   Send,
@@ -16,6 +17,14 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/core/components/ui/breadcrumb";
 import { Button } from "@/core/components/ui/button";
 import {
   Card,
@@ -27,11 +36,14 @@ import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
 import { formatDate } from "@/core/lib/dates";
 import { shortUUID } from "@/core/lib/misc";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRoles } from "@/modules/auth/setup/auth";
 import OpsStatusBadge from "@/modules/ops_files/components/OpsStatusBadge/OpsStatusBadge";
 import useOpsFile from "@/modules/ops_files/hooks/useOpsFile";
 import {
   createOpsFileComment,
   deleteOpsFileComment,
+  getCargoUnitTypesName,
   getOpsTypeIcon,
   getOpsTypeName,
   getVolumeUnitName,
@@ -42,8 +54,6 @@ import {
   OpsFileComment,
   OpsfileCommentCreate,
 } from "@/modules/ops_files/types/ops_files.types";
-import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
 
 const DEFAULT_USER_NAME = "System user";
 const DEFAULT_MISSING_DATA_TAG = "- -";
@@ -57,9 +67,11 @@ export default function OperationDetailPage() {
   const { user } = useAuth();
   const userRole = user?.role;
 
-  const operationId = String(params?.id || "");
+  /**
+   * - - - - Operation file logic
+   */
 
-  // const params = await props.params;
+  const operationId = String(params?.id || "");
 
   const operationData = useOpsFile(operationId, {
     queryProps: { enabled: !!operationId },
@@ -67,6 +79,9 @@ export default function OperationDetailPage() {
 
   const { operation } = operationData;
 
+  /**
+   * Refetch the operation data
+   */
   const reloadOperation = () => {
     operationData.query.refetch();
   };
@@ -197,19 +212,35 @@ export default function OperationDetailPage() {
               {/* {operation.cargoDescription} */}
             </h1>
             <p className="text-muted-foreground">
-              {shortUUID(operation?.opsFileId || "")}
+              Review your operation
               {/* {operation.origin_location} to {operation.destination_location} */}
             </p>
           </div>
         </div>
         <div className="flex space-x-2">
-          {/* <Button variant="outline" asChild disabled>
-            <Link href={`/app/operations/${operation.opsFileId}/edit`}>
+          <Button variant="outline" asChild disabled>
+            <Link href={`/app/operations/${operationId}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Link>
-          </Button> */}
+          </Button>
         </div>
+      </div>
+
+      <div className="">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={`/app/operations`}>Operations</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{shortUUID(operationId)}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -346,9 +377,10 @@ export default function OperationDetailPage() {
                   Quantity
                 </h3>
                 <p>
-                  {`${operation?.unitsQuantity || ""} ${
-                    operation?.unitsType || ""
-                  }`.trim() || DEFAULT_MISSING_DATA_TAG}
+                  {`${operation?.unitsQuantity || ""} ${getCargoUnitTypesName(
+                    operation?.unitsType || "",
+                    operation?.unitsQuantity === 1
+                  )}`.trim() || DEFAULT_MISSING_DATA_TAG}
                 </p>
               </div>
               <div>

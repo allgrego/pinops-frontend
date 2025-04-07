@@ -390,8 +390,8 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      <div className="border rounded-md">
-        <Table>
+      <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
+        <Table className="w-full overflow-x-auto">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

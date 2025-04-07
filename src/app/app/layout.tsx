@@ -8,9 +8,9 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full">
       <Sidebar />
-      <div className="flex-1 p-8">{children}</div>
+      <div className="flex-1 p-8 mt-6 md:mt-0 ">{children}</div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { JSX } from "react";
 import { BACKEND_BASE_URL } from "@/core/setup/routes";
 import type { Client } from "@/modules/clients/types/clients";
 import {
+  OperationStatus,
   OperationStatuses,
   OperationType,
   OperationTypes,
@@ -586,6 +587,26 @@ export const getOpsTypeName = (type: string, defaultValue?: string) => {
   };
 
   return names?.[type as OperationType] || defaultValue || type;
+};
+
+/**
+ * Name for Operation type
+ *
+ * @param {string} type
+ *
+ * @return {string}
+ */
+export const getOpsStatusName = (statusId: number, defaultValue?: string) => {
+  const names: Record<OperationStatus, string> = {
+    [OperationStatuses.OPENED]: "Opened",
+    [OperationStatuses.IN_TRANSIT]: "In transit",
+    [OperationStatuses.ON_DESTINATION]: "On destination",
+    [OperationStatuses.IN_WAREHOUSE]: "In warehouse",
+    [OperationStatuses.PREALERTED]: "Prealerted",
+    [OperationStatuses.CLOSED]: "Closed",
+  };
+
+  return names?.[statusId as OperationStatus] || defaultValue || "unknown";
 };
 
 /**

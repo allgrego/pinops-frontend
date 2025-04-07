@@ -9,6 +9,14 @@ import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Badge } from "@/core/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/core/components/ui/breadcrumb";
 import { Button } from "@/core/components/ui/button";
 import {
   Card,
@@ -41,8 +49,10 @@ import {
 } from "@/core/components/ui/select";
 import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
+import { numberOrNull } from "@/core/lib/numbers";
 import { cn } from "@/core/lib/utils";
 import useClients from "@/modules/hooks/useClients";
+import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
   allCargoUnitTypes,
   allOperationTypes,
@@ -53,6 +63,8 @@ import {
   getOpsTypeName,
   getVolumeUnitName,
   getWeightUnitName,
+  VolumeUnits,
+  WeightUnits,
 } from "@/modules/ops_files/lib/ops_files";
 import {
   OperationStatuses,
@@ -93,6 +105,12 @@ export default function NewOperationPage() {
     defaultValues: {
       opType: DEFAULT_OPS_TYPE,
       statusId: DEFAULT_OPS_STATUS, // Always opened
+
+      // Default units
+      grossWeightUnit: WeightUnits.KG,
+      volumeUnit: VolumeUnits.M3,
+
+      // Others
       carrierId: null,
     },
   });
@@ -136,17 +154,35 @@ export default function NewOperationPage() {
     e?.preventDefault();
 
     try {
+      // Determine the final values
+      const finalGrossWeightValue = numberOrNull(data?.grossWeightValue);
+      const finalVolumeValue = numberOrNull(data?.volumeUnit);
+      const finalUnitValue = numberOrNull(data?.unitsQuantity);
       // Determine the final units
       const finalWeightUnit =
         data.grossWeightUnit === CUSTOM_UNIT_KEY
           ? customWeightUnit
+          : data.grossWeightUnit === NONE_SELECT_OPTION
+          ? null
           : data.grossWeightUnit;
       const finalVolumeUnit =
         data.volumeUnit === CUSTOM_UNIT_KEY
           ? customVolumeUnit
+          : data.volumeUnit === NONE_SELECT_OPTION
+          ? null
           : data.volumeUnit;
       const finalUnitsType =
-        data.unitsType === CUSTOM_UNIT_KEY ? customUnitsType : data.unitsType;
+        data.unitsType === CUSTOM_UNIT_KEY
+          ? customUnitsType
+          : data.unitsType === NONE_SELECT_OPTION
+          ? null
+          : data.unitsType;
+
+      const finalIncoterm =
+        data.incoterm === NONE_SELECT_OPTION ? null : data.incoterm;
+
+      const finalCarrier =
+        data.carrierId === NONE_SELECT_OPTION ? null : data.carrierId;
 
       // Create the operation
       const newOperation = await createOperationMutation.mutateAsync({
@@ -161,30 +197,27 @@ export default function NewOperationPage() {
         estimatedTimeArrival: data?.estimatedTimeArrival || null,
         actualTimeArrival: data?.actualTimeArrival || null,
         cargoDescription: data?.cargoDescription,
-        unitsQuantity:
-          typeof data.unitsQuantity === "number"
-            ? Number(data.unitsQuantity)
-            : null,
-        unitsType: finalUnitsType || null,
-        grossWeightValue:
-          typeof data?.grossWeightValue === "number"
-            ? Number(data.grossWeightValue)
-            : null,
-        grossWeightUnit: finalWeightUnit || null,
-        volumeValue:
-          typeof data?.volumeValue === "number"
-            ? Number(data.volumeValue)
-            : null,
-        volumeUnit: finalVolumeUnit || null,
+        unitsQuantity: finalUnitValue,
+        unitsType: finalUnitsType || null, // The unit type could be regardless of missing value
+        grossWeightValue: finalGrossWeightValue,
+        grossWeightUnit:
+          finalGrossWeightValue === null
+            ? null // Remove unit when no value
+            : finalWeightUnit || null,
+        volumeValue: finalVolumeValue,
+        volumeUnit:
+          finalVolumeValue === null
+            ? null // Remove unit when no value
+            : finalVolumeUnit || null,
         masterTransportDoc: data?.masterTransportDoc || null,
         houseTransportDoc: data?.houseTransportDoc || null,
-        incoterm: data?.incoterm || null,
+        incoterm: finalIncoterm || null,
         modality: data?.modality || null,
         voyage: data?.voyage || null,
         opType: data?.opType || null,
         clientId: data?.clientId,
         statusId: data?.statusId,
-        carrierId: data?.carrierId || null,
+        carrierId: finalCarrier || null,
         agentsId: selectedAgents || [],
         comment: !data?.comment
           ? null
@@ -211,6 +244,22 @@ export default function NewOperationPage() {
           </Link>
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">New Operation</h1>
+      </div>
+
+      <div className="">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href={`/app/operations`}>Operations</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>New</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
 
       <form onSubmit={formData.handleSubmit(handleSubmit)}>
@@ -253,14 +302,16 @@ export default function NewOperationPage() {
                           </SelectTrigger>
 
                           <SelectContent>
-                            {clients.map((client) => (
-                              <SelectItem
-                                value={client.clientId}
-                                key={client.clientId}
-                              >
-                                {client.name}
-                              </SelectItem>
-                            ))}
+                            {!clients.length
+                              ? null
+                              : clients.map((client) => (
+                                  <SelectItem
+                                    value={client.clientId}
+                                    key={client.clientId}
+                                  >
+                                    {client.name}
+                                  </SelectItem>
+                                ))}
                           </SelectContent>
                         </Select>
                       </>
@@ -288,11 +339,13 @@ export default function NewOperationPage() {
                           <SelectValue placeholder="Select operation type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {allOperationTypes.map((type) => (
-                            <SelectItem value={type} key={type}>
-                              {getOpsTypeName(type)}
-                            </SelectItem>
-                          ))}
+                          {!allOperationTypes.length
+                            ? null
+                            : allOperationTypes.map((type) => (
+                                <SelectItem value={type} key={type}>
+                                  {getOpsTypeName(type)}
+                                </SelectItem>
+                              ))}
                         </SelectContent>
                       </Select>
                     )}
@@ -425,14 +478,16 @@ export default function NewOperationPage() {
                             <SelectItem value={NONE_SELECT_OPTION}>
                               None
                             </SelectItem>
-                            {carriers.map((carrier) => (
-                              <SelectItem
-                                value={carrier.carrierId}
-                                key={carrier.carrierId}
-                              >
-                                {carrier.name}
-                              </SelectItem>
-                            ))}
+                            {!carriers.length
+                              ? null
+                              : carriers.map((carrier) => (
+                                  <SelectItem
+                                    value={carrier.carrierId}
+                                    key={carrier.carrierId}
+                                  >
+                                    {carrier.name}
+                                  </SelectItem>
+                                ))}
                           </SelectContent>
                         </Select>
                       </>
@@ -477,11 +532,13 @@ export default function NewOperationPage() {
                               <SelectItem value={NONE_SELECT_OPTION}>
                                 None
                               </SelectItem>
-                              {allCargoUnitTypes.map((unitType) => (
-                                <SelectItem value={unitType} key={unitType}>
-                                  {getCargoUnitTypesName(unitType)}
-                                </SelectItem>
-                              ))}
+                              {!allCargoUnitTypes.length
+                                ? null
+                                : allCargoUnitTypes.map((unitType) => (
+                                    <SelectItem value={unitType} key={unitType}>
+                                      {getCargoUnitTypesName(unitType)}
+                                    </SelectItem>
+                                  ))}
                               <SelectItem value={CUSTOM_UNIT_KEY}>
                                 Other
                               </SelectItem>
@@ -537,11 +594,13 @@ export default function NewOperationPage() {
                               <SelectItem value={NONE_SELECT_OPTION}>
                                 None
                               </SelectItem>
-                              {allWeightUnits.map((unit) => (
-                                <SelectItem value={unit} key={unit}>
-                                  {getWeightUnitName(unit)}
-                                </SelectItem>
-                              ))}
+                              {!allWeightUnits.length
+                                ? null
+                                : allWeightUnits.map((unit) => (
+                                    <SelectItem value={unit} key={unit}>
+                                      {getWeightUnitName(unit)}
+                                    </SelectItem>
+                                  ))}
                               <SelectItem value={CUSTOM_UNIT_KEY}>
                                 Other
                               </SelectItem>
@@ -596,11 +655,13 @@ export default function NewOperationPage() {
                               <SelectItem value={NONE_SELECT_OPTION}>
                                 None
                               </SelectItem>
-                              {allVolumeUnits.map((unit) => (
-                                <SelectItem value={unit} key={unit}>
-                                  {getVolumeUnitName(unit)}
-                                </SelectItem>
-                              ))}
+                              {!allVolumeUnits.length
+                                ? null
+                                : allVolumeUnits.map((unit) => (
+                                    <SelectItem value={unit} key={unit}>
+                                      {getVolumeUnitName(unit)}
+                                    </SelectItem>
+                                  ))}
                               <SelectItem value={CUSTOM_UNIT_KEY}>
                                 Other
                               </SelectItem>
@@ -759,14 +820,14 @@ export default function NewOperationPage() {
                       <SelectValue placeholder="Select incoterm" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CIF">CIF</SelectItem>
-                      <SelectItem value="FOB">FOB</SelectItem>
-                      <SelectItem value="EXW">EXW</SelectItem>
-                      <SelectItem value="FCA">FCA</SelectItem>
-                      <SelectItem value="CPT">CPT</SelectItem>
-                      <SelectItem value="CIP">CIP</SelectItem>
-                      <SelectItem value="DAP">DAP</SelectItem>
-                      <SelectItem value="DDP">DDP</SelectItem>
+                      <SelectItem value={NONE_SELECT_OPTION}>None</SelectItem>
+                      {!allIncoterms.length
+                        ? null
+                        : allIncoterms.map((incot) => (
+                            <SelectItem value={incot} key={incot}>
+                              {incot}
+                            </SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -788,10 +849,22 @@ export default function NewOperationPage() {
         </div>
 
         <div className="mt-6 flex justify-end space-x-4">
-          <Button variant="outline" asChild>
-            <Link href="/app/operations">Cancel</Link>
+          <Button
+            variant="outline"
+            asChild
+            disabled={createOperationMutation.isPending}
+          >
+            <Link href={`/app/operations`}>Cancel</Link>
           </Button>
-          <Button type="submit">Create Operation</Button>
+          <Button
+            type="submit"
+            loading={createOperationMutation.isPending}
+            disabled={createOperationMutation.isPending}
+          >
+            {createOperationMutation.isPending
+              ? "Creating..."
+              : "Create operation"}
+          </Button>
         </div>
       </form>
     </div>

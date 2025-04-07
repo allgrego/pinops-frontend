@@ -191,7 +191,7 @@ export default function OperationsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Operations</h1>
@@ -218,8 +218,8 @@ export default function OperationsPage() {
         </div>
       </div>
 
-      <div className="border rounded-md">
-        <Table>
+      <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
+        <Table className="w-full overflow-x-auto">
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
