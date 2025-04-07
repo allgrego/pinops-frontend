@@ -8,6 +8,7 @@ import { Toaster } from "@/core/components/ui/sonner";
 
 import { AuthGuard } from "@/modules/auth/components/AuthGuard/AuthGuard";
 import "./globals.css";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,10 +33,14 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <AuthGuard>
-              {children}
-              <Toaster />
-            </AuthGuard>
+            <Suspense
+            // TODO: Add a fallback UI
+            >
+              <AuthGuard>
+                {children}
+                <Toaster />
+              </AuthGuard>
+            </Suspense>
           </ThemeProvider>
         </Providers>
       </body>
