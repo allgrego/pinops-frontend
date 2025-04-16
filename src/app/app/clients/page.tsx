@@ -1,11 +1,24 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Ban,
+  CheckCircle,
+  Edit,
+  Eye,
+  EyeOff,
+  Mail,
+  MoreHorizontal,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import DeleteConfirmationDialog from "@/core/components/DeleteConfirmationDialog/DeleteConfirmationDialog";
+import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import {
   Dialog,
@@ -24,6 +37,7 @@ import {
 } from "@/core/components/ui/dropdown-menu";
 import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
+import { Separator } from "@/core/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -52,7 +66,7 @@ export default function ClientsPage() {
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role;
+  const userRole = user?.role.role_id;
 
   /**
    * - - - Clients fetching
@@ -73,18 +87,47 @@ export default function ClientsPage() {
    */
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredClients = clients.filter((client) =>
-    client.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .includes(
-        searchTerm
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase()
+  const [showDisabled, setShowDisabled] = useState(false);
+
+  const toggleShowDisabled = () => setShowDisabled((c) => !c);
+
+  const filteredClients = clients
+    // Search filter
+    .filter((client) =>
+      [
+        client.name,
+        client?.contactEmail,
+        client?.contactName,
+        client?.contactPhone,
+      ].some((token) =>
+        token
+          ?.normalize("NFD")
+          ?.replace(/[\u0300-\u036f]/g, "")
+          ?.toLowerCase()
+          ?.includes(
+            searchTerm
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+          )
       )
-  );
+    )
+    // Only show enabled clients if showDisabled is false
+    .filter((client) => showDisabled || !client.disabled);
+
+    // Sort clients by enabled/disabled (disabled at end)
+    filteredClients.sort((a, b) => {
+      // If 'a' is true and 'b' is false, 'b' should come first (1).
+      if (a.disabled && !b.disabled) {
+        return 1;
+      }
+      // If 'a' is false and 'b' is true, 'a' should come first (-1).
+      if (!a.disabled && b.disabled) {
+        return -1;
+      }
+      // If both are the same (both true or both false), their relative order doesn't matter (0).
+      return 0;
+    });
 
   /**
    * - - - - Selected client logic (for both details and edit)
@@ -159,6 +202,8 @@ export default function ClientsPage() {
       contactEmail: newClientData?.contactEmail || null,
       contactName: newClientData?.contactName || null,
       contactPhone: newClientData?.contactPhone || null,
+      address: newClientData?.address || null,
+      disabled: newClientData?.disabled || false,
     });
 
     console.log("new Client", newClient);
@@ -223,6 +268,8 @@ export default function ClientsPage() {
         contactEmail: editClientData?.contactEmail || null,
         contactName: editClientData?.contactName || null,
         contactPhone: editClientData?.contactPhone || null,
+        address: editClientData?.address || null,
+        disabled: editClientData?.disabled || false,
       },
     });
 
@@ -240,9 +287,37 @@ export default function ClientsPage() {
       contactEmail: client?.contactEmail,
       contactName: client?.contactName,
       contactPhone: client?.contactPhone,
+      address: client?.address,
+      disabled: client?.disabled,
     });
 
     setIsEditClientOpen(true);
+  };
+
+  /**
+   * - - - - Enable/disable client logic
+   */
+
+  const enableDisableClient = async (clientId: string, disabled: boolean) => {
+    if (!clientId) {
+      toast("client ID not found to enable/disable");
+      return;
+    }
+
+    const updatedClient = await updateClientMutation.mutateAsync({
+      clientId,
+      data: {
+        disabled,
+      },
+    });
+
+    toast(
+      `The client ${updatedClient?.name} has been ${
+        disabled ? "disabled" : "enabled"
+      }.`
+    );
+
+    await loadClients();
   };
 
   /**
@@ -336,6 +411,17 @@ export default function ClientsPage() {
                   placeholder="Enter tax ID"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newClientData?.address || ""}
+                  onChange={(e) =>
+                    updateNewClientData({ address: e.target.value })
+                  }
+                  placeholder="Enter address"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-2">
                   <Label htmlFor="contactName">Contact name</Label>
@@ -391,7 +477,7 @@ export default function ClientsPage() {
         </Dialog>
       </div>
 
-      <div className="flex items-center">
+      <div className="flex items-center w-full justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -401,6 +487,22 @@ export default function ClientsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleShowDisabled}
+            className="flex items-center gap-1"
+          >
+            {showDisabled ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            {showDisabled ? "Hide disabled" : "Show disabled"}
+          </Button>
         </div>
       </div>
 
@@ -444,18 +546,44 @@ export default function ClientsPage() {
               </TableRow>
             ) : (
               filteredClients.map((client) => (
-                <TableRow key={client.clientId}>
+                <TableRow
+                  key={client.clientId}
+                  className={client?.disabled ? "bg-muted/50" : ""}
+                >
                   <TableCell
                     className="font-medium"
                     onClick={() => openDetailsDialog(client)}
                   >
-                    {client.name || "-"}
+                    <div className="flex items-center gap-2">
+                      {client.name || "-"}
+                      {!!client?.disabled && (
+                        <Badge
+                          variant="outline"
+                          className="bg-red-100 text-red-800 hover:bg-red-100"
+                        >
+                          disabled
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell
                     className=""
                     onClick={() => openDetailsDialog(client)}
                   >
-                    {client?.contactName || "-"}
+                    <div className="text-sm">
+                      <div>{client?.contactName || "-"}</div>
+                      {client?.contactEmail && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {client?.contactEmail}
+                        </div>
+                      )}
+
+                      {client?.contactPhone && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {client?.contactPhone}
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
 
                   {/* Actions */}
@@ -473,6 +601,26 @@ export default function ClientsPage() {
                         >
                           <Eye className="mr-2 h-4 w-4" />
                           View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            enableDisableClient(
+                              client.clientId,
+                              !client?.disabled
+                            )
+                          }
+                        >
+                          {!client.disabled ? (
+                            <>
+                              <Ban className="mr-2 h-4 w-4" />
+                              Disable
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Enable
+                            </>
+                          )}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => openEditDialog(client)}
@@ -522,12 +670,29 @@ export default function ClientsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Client name</Label>
-              <div>{currentClient?.name || "-"}</div>
+              <div>
+                {currentClient?.name || "-"}{" "}
+                {!!currentClient?.disabled && (
+                  <Badge
+                    variant="outline"
+                    className="bg-red-100 text-red-800 hover:bg-red-100"
+                  >
+                    disabled
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Tax ID</Label>
               <div>{currentClient?.taxId || "-"}</div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Address</Label>
+              <div>{currentClient?.address || "-"}</div>
+            </div>
+
+            <Separator />
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label htmlFor="contactName">Contact name</Label>
@@ -542,6 +707,8 @@ export default function ClientsPage() {
               <Label htmlFor="contactEmail">Contact email</Label>
               <div>{currentClient?.contactEmail || "-"}</div>
             </div>
+
+            <Separator />
 
             <div className="grid grid-cols-1 gap-4 text-xs mt-6">
               <div className="space-y-2">
@@ -616,6 +783,20 @@ export default function ClientsPage() {
                 placeholder="Enter tax ID"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={editClientData?.address || ""}
+                onChange={(e) =>
+                  updateEditClientData({ address: e.target.value })
+                }
+                placeholder="Enter address"
+              />
+            </div>
+
+            <Separator />
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <Label htmlFor="contactName">Contact name</Label>

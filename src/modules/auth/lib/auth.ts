@@ -4,7 +4,8 @@ import { persist } from "zustand/middleware";
 import { getRoute } from "@/core/lib/routes";
 
 import { UserLoginBackend } from "@/modules/auth/types/auth";
-import { User } from "@/modules/auth/types/user";
+
+import { User } from "@/modules/users/types/users.types";
 
 /**
  * Login by getting user data from backend if valid credentials

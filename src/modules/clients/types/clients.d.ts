@@ -6,9 +6,11 @@
 export interface ClientBaseBackend {
   name: string;
   tax_id?: string | null;
+  address?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  disabled?: boolean;
 }
 
 export interface ClientBackend extends ClientBaseBackend {
@@ -29,9 +31,11 @@ export interface ClientUpdateBackend extends ClientBaseBackend {
 export interface ClientBase {
   name: ClientBaseBackend["name"];
   taxId?: ClientBaseBackend["tax_id"];
+  address?: ClientBaseBackend["address"];
   contactName?: ClientBaseBackend["contact_name"];
   contactEmail?: ClientBaseBackend["contact_email"];
   contactPhone?: ClientBaseBackend["contact_phone"];
+  disabled?: ClientBaseBackend["disabled"];
 }
 
 export interface Client extends ClientBase {

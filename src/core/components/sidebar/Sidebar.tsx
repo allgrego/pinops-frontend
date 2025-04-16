@@ -15,12 +15,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { Avatar, AvatarFallback } from "@/core/components/ui/avatar";
 import { Button } from "@/core/components/ui/button";
-import { useMobile } from "@/core/hooks/useMobile";
-import { cn } from "@/core/lib/utils";
-
-import { useAuth } from "@/modules/auth/lib/auth";
-import { Avatar, AvatarFallback } from "../ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,29 +24,33 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@/core/components/ui/dropdown-menu";
+import { useMobile } from "@/core/hooks/useMobile";
+import { getRoute } from "@/core/lib/routes";
+import { cn } from "@/core/lib/utils";
+import { useAuth } from "@/modules/auth/lib/auth";
 
 const APP_NAME = "PinOps";
 
 const navItems = [
   {
     name: "Dashboard",
-    href: "/app/dashboard",
+    href: getRoute("dashboard"),
     icon: LayoutDashboard,
   },
   {
     name: "Operations",
-    href: "/app/operations",
+    href: getRoute("operations"),
     icon: Package2,
   },
   {
     name: "Clients",
-    href: "/app/clients",
+    href: getRoute("clients"),
     icon: Users,
   },
   {
     name: "Carriers",
-    href: "/app/carriers",
+    href: getRoute("carriers"),
     icon: Ship,
   },
   {
@@ -157,7 +157,7 @@ export function Sidebar() {
                           <div className="text-left">
                             <p className="text-sm font-medium">{user.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {user.role}
+                              {user.role.role_name}
                             </p>
                           </div>
                         </div>
@@ -241,7 +241,9 @@ export function Sidebar() {
                   </Avatar>
                   <div className="text-left">
                     <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.role.role_name}
+                    </p>
                   </div>
                 </div>
               </Button>

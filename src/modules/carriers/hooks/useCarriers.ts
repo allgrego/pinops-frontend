@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { CustomQueryProps } from "@/core/types/query";
-import { Carrier } from "../types/carriers.types";
-import { getAllCarriers } from "../lib/carriers";
+import { Carrier } from "@/modules/carriers/types/carriers.types";
+import { getAllCarriers } from "@/modules/carriers/lib/carriers";
 
 type Data = Carrier[];
 
