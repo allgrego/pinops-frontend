@@ -2,6 +2,8 @@
 
 import { useMutation } from "@tanstack/react-query";
 import {
+  Ban,
+  CheckCircle,
   Edit,
   Eye,
   Mail,
@@ -350,6 +352,46 @@ export default function PartnersPage() {
   };
 
   /**
+   * - - - - Edit Partner contacts logic
+   */
+
+  // List of contacts to be added when creating partner
+  const [editContacts, setEditContacts] = useState<
+    PartnerContactCreateWithoutPartnerId[]
+  >([]);
+
+  const addEditContact = () => {
+    setEditContacts([
+      ...editContacts,
+      {
+        name: "",
+        email: "",
+        phone: "",
+        mobile: "",
+        position: "",
+        disabled: false,
+      },
+    ]);
+  };
+
+  const updateEditContact = (
+    index: number,
+    field: string,
+    value: string | boolean
+  ) => {
+    const updatedContacts = [...editContacts];
+    updatedContacts[index] = { ...updatedContacts[index], [field]: value };
+    setEditContacts(updatedContacts);
+  };
+
+  const removeEditContact = (index: number) => {
+    const updatedContacts = [...editContacts];
+    updatedContacts.splice(index, 1);
+
+    setEditContacts(updatedContacts);
+  };
+
+  /**
    * - - --  Partner update
    */
 
@@ -404,6 +446,7 @@ export default function PartnersPage() {
         disabled: editPartnerData?.disabled || false,
         taxId: editPartnerData?.taxId || null,
         webpage: editPartnerData?.webpage || null,
+        contacts: editContacts || [],
       },
     });
 
@@ -411,6 +454,24 @@ export default function PartnersPage() {
 
     setIsEditPartnerOpen(false);
     await reloadPartners();
+  };
+
+  const handleSetDisable = async (partnerId: string, value: boolean) => {
+    const updatedPartner = await updatePartnerMutation.mutateAsync({
+      partnerId: partnerId,
+      data: {
+        disabled: value || false,
+      },
+    });
+
+    toast(
+      `The partner ${updatedPartner?.name} has been ${
+        updatedPartner?.disabled ? "disabled" : "enabled"
+      } successfully.`
+    );
+
+    await reloadPartners();
+    return;
   };
 
   const openEditDialog = (partner: Partner) => {
@@ -422,7 +483,10 @@ export default function PartnersPage() {
       disabled: partner?.disabled,
       taxId: partner?.taxId,
       webpage: partner?.webpage,
+      contacts: partner?.contacts || [],
     });
+
+    setEditContacts(partner?.contacts || []);
 
     setIsEditPartnerOpen(true);
   };
@@ -492,14 +556,14 @@ export default function PartnersPage() {
               New Partner
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="min-w-fit max-w-[40rem]">
             <DialogHeader>
               <DialogTitle>Create new partner</DialogTitle>
               <DialogDescription>
                 Add a new partner to your system.
               </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="max-h-[60vh] pl-1 pr-2">
+            <ScrollArea className="max-h-[60vh] pl-1 pr-4">
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label className="font-semibold">Details</Label>
@@ -820,14 +884,15 @@ export default function PartnersPage() {
               isLoading={isLoadingPartnersData}
               isError={isErrorPartnersData}
               error={partnerTypesError || partnersError}
+              userRoleId={userRole}
               onOpenDetails={(partner) => openDetailsDialog(partner)}
               onDelete={(partner) => {
                 setCurrentPartner(partner);
                 openDeleteConfirmationDialog();
               }}
-              userRoleId={userRole}
-              //   onComment={openCommentDialog}
-              //   onDelete={handleDeleteCarrier}
+              onSetDisable={(partner) =>
+                handleSetDisable(partner.partnerId, !partner?.disabled)
+              }
             />
           </TabsContent>
 
@@ -842,14 +907,15 @@ export default function PartnersPage() {
                 isLoading={isLoadingPartnersData}
                 isError={isErrorPartnersData}
                 error={partnerTypesError || partnersError}
+                userRoleId={userRole}
                 onOpenDetails={(partner) => openDetailsDialog(partner)}
                 onDelete={(partner) => {
                   setCurrentPartner(partner);
                   openDeleteConfirmationDialog();
                 }}
-                userRoleId={userRole}
-                //   onComment={openCommentDialog}
-                //   onDelete={handleDeleteCarrier}
+                onSetDisable={(partner) =>
+                  handleSetDisable(partner.partnerId, !partner?.disabled)
+                }
               />
             </TabsContent>
           ))}
@@ -1044,73 +1110,248 @@ export default function PartnersPage() {
 
       {/* Edit partner dialog */}
       <Dialog open={isEditPartnerOpen} onOpenChange={setIsEditPartnerOpen}>
-        <DialogContent>
+        <DialogContent className="min-w-fit max-w-[40rem]">
           <DialogHeader>
             <DialogTitle>Edit Partner</DialogTitle>
             <DialogDescription>Update partner information.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Partner name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={editPartnerData?.name || ""}
-                onChange={(e) =>
-                  updateEditPartnerData({ name: e.target.value })
-                }
-                placeholder="Enter partner name"
-              />
-            </div>
+          <ScrollArea className="max-h-[60vh] pl-1 pr-4">
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label className="font-semibold">Details</Label>
+              </div>
+              <div className="grid grid-cols-2 w-full gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Partner name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    value={editPartnerData?.name || ""}
+                    onChange={(e) =>
+                      updateEditPartnerData({ name: e.target.value })
+                    }
+                    placeholder="Enter partner name"
+                  />
+                </div>
 
-            {/* Contact */}
-            {/* <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-2">
-                <Label htmlFor="contactName">Contact name</Label>
-                <Input
-                  id="contactName"
-                  value={editPartnerData?.contactName || ""}
-                  onChange={(e) =>
-                    updateEditPartnerData({ contactName: e.target.value })
-                  }
-                  placeholder="Teresa Torres"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Partner type <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={editPartnerData.partnerTypeId}
+                    onValueChange={(value) =>
+                      updateEditPartnerData({ partnerTypeId: value })
+                    }
+                    disabled={partnerTypesIsLoading || partnerTypesIsError}
+                  >
+                    <SelectTrigger
+                      id={"partnerType"}
+                      disabled={partnerTypesIsLoading || partnerTypesIsError}
+                    >
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {!partnerTypes.length
+                        ? null
+                        : partnerTypes.map((type) => (
+                            <SelectItem
+                              value={type.partnerTypeId}
+                              key={type.partnerTypeId}
+                            >
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="country">
+                    Country{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <CountrySelector
+                    countries={countries || []}
+                    isLoading={countriesIsLoading}
+                    value={editPartnerData?.countryId || null}
+                    onValueChange={(value) =>
+                      updateEditPartnerData({ countryId: value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="taxId">
+                    Tax ID{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="taxId"
+                    value={editPartnerData?.taxId || ""}
+                    onChange={(e) =>
+                      updateEditPartnerData({ taxId: e.target.value })
+                    }
+                    placeholder="Enter tax ID"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webpage">
+                    Webpage{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="webpage"
+                    value={editPartnerData?.webpage || ""}
+                    onChange={(e) =>
+                      updateEditPartnerData({ webpage: e.target.value })
+                    }
+                    placeholder="Enter webpage URL"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="contactPhone">Contact phone</Label>
-                <Input
-                  id="contactPhone"
-                  value={editPartnerData?.contactPhone || ""}
-                  onChange={(e) =>
-                    updateEditPartnerData({ contactPhone: e.target.value })
-                  }
-                  placeholder="+12 456 78 90"
-                />
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <Label>Contact persons</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addEditContact}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Contact
+                </Button>
               </div>
+
+              {editContacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No contacts added yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {editContacts.map((contact, index) => (
+                    <Card key={index}>
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-base">
+                            {contact?.name || `Contact ${index + 1}`}
+                          </CardTitle>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeEditContact(index)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`contact-name-${index}`}>
+                              Name <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id={`contact-name-${index}`}
+                              value={contact.name}
+                              onChange={(e) =>
+                                updateEditContact(index, "name", e.target.value)
+                              }
+                              placeholder="Contact name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`contact-position-${index}`}>
+                              Position{" "}
+                              <span className="text-muted-foreground">
+                                (optional)
+                              </span>
+                            </Label>
+                            <Input
+                              id={`contact-position-${index}`}
+                              value={contact.position || ""}
+                              onChange={(e) =>
+                                updateEditContact(
+                                  index,
+                                  "position",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Position or title"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor={`contact-email-${index}`}
+                              className="flex items-center gap-1"
+                            >
+                              <Mail className="h-3 w-3" /> Email{" "}
+                              <span className="text-muted-foreground">
+                                (optional)
+                              </span>
+                            </Label>
+                            <Input
+                              id={`contact-email-${index}`}
+                              type="email"
+                              value={contact.email || ""}
+                              onChange={(e) =>
+                                updateEditContact(
+                                  index,
+                                  "email",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Email address"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor={`contact-phone-${index}`}
+                              className="flex items-center gap-1"
+                            >
+                              <Phone className="h-3 w-3" /> Phone
+                              <span className="text-muted-foreground">
+                                (optional)
+                              </span>
+                            </Label>
+                            <Input
+                              id={`contact-phone-${index}`}
+                              value={contact.phone || ""}
+                              onChange={(e) =>
+                                updateEditContact(
+                                  index,
+                                  "phone",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Phone number"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact email</Label>
-              <Input
-                id="contactEmail"
-                value={editPartnerData?.contactEmail || ""}
-                onChange={(e) =>
-                  updateEditPartnerData({ contactEmail: e.target.value })
-                }
-                placeholder="agent@email.com"
-              />
-            </div> */}
-          </div>
+          </ScrollArea>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditPartnerOpen(false)}
-            >
+            <Button variant="ghost" onClick={() => setIsEditPartnerOpen(false)}>
               Cancel
             </Button>
             <Button
-              variant="destructive"
+              variant="outline"
               disabled={
                 updatePartnerMutation.isPending || userRole !== UserRoles.ADMIN
               }
@@ -1169,6 +1410,7 @@ type PartnersTableProps = {
   partners: Partner[] | undefined;
   onOpenDetails: (partner: Partner) => void;
   onDelete: (partner: Partner) => void;
+  onSetDisable: (partner: Partner) => void;
   userRoleId?: string;
 };
 
@@ -1179,6 +1421,7 @@ const PartnersTable: FC<PartnersTableProps> = ({
   partners,
   onOpenDetails,
   onDelete,
+  onSetDisable,
   userRoleId,
 }) => {
   return (
@@ -1290,6 +1533,19 @@ const PartnersTable: FC<PartnersTableProps> = ({
                       <DropdownMenuItem onClick={() => onOpenDetails(partner)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onSetDisable(partner)}>
+                        {!partner?.disabled ? (
+                          <>
+                            <Ban className="mr-2 h-4 w-4" />
+                            Disable
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Enable
+                          </>
+                        )}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {

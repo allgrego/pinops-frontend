@@ -438,13 +438,13 @@ export const createPartner = async (
       partner_type_id: newPartnerData?.partnerTypeId,
       disabled: newPartnerData?.disabled || false,
       // Initial contacts
-      contacts:
+      initial_contacts:
         newPartnerData?.contacts?.map((contact) => ({
           name: contact.name,
-          email: contact.email,
-          mobile: contact.mobile,
-          phone: contact.phone,
-          position: contact.position,
+          email: contact?.email || null,
+          mobile: contact?.mobile || null,
+          phone: contact?.phone || null,
+          position: contact?.position || null,
           disabled: contact?.disabled || false,
         })) || [],
     };
@@ -500,6 +500,15 @@ export const updatePartner = async (
       tax_id: newPartnerData?.taxId,
       partner_type_id: newPartnerData?.partnerTypeId,
       disabled: newPartnerData?.disabled,
+      partner_contacts:
+        newPartnerData?.contacts?.map((contact) => ({
+          name: contact.name,
+          email: contact.email || null,
+          mobile: contact.mobile || null,
+          phone: contact.phone || null,
+          position: contact.position || null,
+          disabled: contact?.disabled || false,
+        })) || undefined,
     };
 
     const url = getRoute("backend-partners-by-id-update", [partnerId]);

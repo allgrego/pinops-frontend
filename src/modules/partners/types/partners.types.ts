@@ -67,12 +67,13 @@ export interface PartnerBackend extends PartnerBaseBackend {
 export interface PartnerCreateBackend extends PartnerBaseBackend {
   partner_type_id: string;
   country_id: number | null;
-  contacts: PartnerContactCreateBaseBackend[];
+  initial_contacts: PartnerContactCreateBaseBackend[];
 }
 
 export type PartnerUpdateBackend = Partial<
-  PartnerCreateBackend & {
+  Omit<PartnerCreateBackend, "initial_contacts"> & {
     partner_type_id: string | null;
+    partner_contacts: PartnerContactCreateBaseBackend[];
   }
 >;
 
