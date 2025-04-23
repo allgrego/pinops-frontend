@@ -7,6 +7,7 @@ import {
   Edit,
   Eye,
   Mail,
+  MapPin,
   MoreHorizontal,
   Phone,
   Plus,
@@ -70,24 +71,26 @@ import {
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
 import { UserRoles } from "@/modules/auth/setup/auth";
-import useCarrierTypes from "@/modules/carriers/hooks/useCarrierTypes";
-import useCarriers from "@/modules/carriers/hooks/useCarriers";
+import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
+import useCountries from "@/modules/geodata/hooks/useCountries";
+import usePartnerTypes from "@/modules/partners/hooks/usePartnerTypes";
+import usePartners from "@/modules/partners/hooks/usePartners";
 import {
-  createCarrier,
-  deleteCarrier,
-  updateCarrier,
-} from "@/modules/carriers/lib/carriers";
+  createPartner,
+  deletePartner,
+  updatePartner,
+} from "@/modules/partners/lib/partners";
+import { PartnerTypesIds } from "@/modules/partners/setup/partners";
 import {
-  Carrier,
-  CarrierContactCreateBase,
-  CarrierCreate,
-  CarrierUpdate,
-} from "@/modules/carriers/types/carriers.types";
-import { CarrierTypesIds } from "@/modules/carriers/setup/carriers";
+  Partner,
+  PartnerContactCreateWithoutPartnerId,
+  PartnerCreate,
+  PartnerUpdate,
+} from "@/modules/partners/types/partners.types";
 
 const ALL_TAB_OPTION = "all";
 
-export default function CarriersPage() {
+export default function PartnersPage() {
   /**
    * - - - Auth
    */
@@ -95,44 +98,64 @@ export default function CarriersPage() {
   const userRole = user?.role.role_id;
 
   /**
-   * - - - Carrier types fetching
+   * - - - Partner types fetching
    */
   const {
-    carrierTypes,
-    isLoading: carrierTypesIsLoading,
-    error: carrierTypesError,
-    isError: carrierTypesIsError,
-  } = useCarrierTypes({
+    partnerTypes,
+    // query: partnerTypesQuery,
+    isLoading: partnerTypesIsLoading,
+    error: partnerTypesError,
+    isError: partnerTypesIsError,
+  } = usePartnerTypes({
     queryProps: {
       refetchOnWindowFocus: false, // Not necessary to refetch on window focus
     },
   });
 
   /**
-   * - - - Carrier types tabs logic
+   * - - - Partner types tabs logic
    */
   const [selectedTab, setSelectedTab] = useState(ALL_TAB_OPTION);
 
+  //   const reloadPartnerTypes = async () => {
+  //     await partnerTypesQuery.refetch();
+  //   };
+
   /**
-   * - - - All Carriers fetching
+   * - - - Countries fetching logic
    */
-  // TODO fetch only by selected Carrier type
   const {
-    carriers,
-    query: carriersQuery,
-    isLoading: carriersIsLoading,
-    error: carriersError,
-    isError: carriersIsError,
-  } = useCarriers({
-    queryProps: { enabled: !!carrierTypes && !carrierTypesIsError },
+    countries,
+    // query: partnerTypesQuery,
+    isLoading: countriesIsLoading,
+    // error: countriesError,
+    // isError: countriesIsError,
+  } = useCountries({
+    queryProps: {
+      refetchOnWindowFocus: false, // Not necessary to refetch on window focus
+    },
   });
 
-  const reloadCarriers = async () => {
-    await carriersQuery.refetch();
+  /**
+   * - - - All partners fetching
+   */
+  // TODO fetch only by selected partner type
+  const {
+    partners,
+    query: partnersQuery,
+    isLoading: partnersIsLoading,
+    error: partnersError,
+    isError: partnersIsError,
+  } = usePartners({
+    queryProps: { enabled: !!partnerTypes && !partnerTypesIsError },
+  });
+
+  const reloadPartners = async () => {
+    await partnersQuery.refetch();
   };
 
-  const isLoadingCarriersData = carriersIsLoading || carrierTypesIsLoading;
-  const isErrorCarriersData = carriersIsError || carrierTypesIsError;
+  const isLoadingPartnersData = partnersIsLoading || partnerTypesIsLoading;
+  const isErrorPartnersData = partnersIsError || partnerTypesIsError;
 
   /**
    * - - - Search and filters logic
@@ -140,10 +163,16 @@ export default function CarriersPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredCarriers = carriers
+  const filteredPartners = partners
     // Filter by search
-    .filter((carrier) =>
-      [carrier.name, carrier.carrierId, carrier?.taxId].some((token) =>
+    .filter((partner) =>
+      [
+        partner.name,
+        partner.partnerId,
+        partner.country?.iso2Code,
+        partner.country?.iso3Code,
+        partner.country?.name,
+      ].some((token) =>
         token
           ?.normalize("NFD")
           ?.replace(/[\u0300-\u036f]/g, "")
@@ -158,34 +187,36 @@ export default function CarriersPage() {
     )
     // Filter by selected tab
     .filter(
-      (carrier) =>
+      (partner) =>
         selectedTab === ALL_TAB_OPTION ||
-        selectedTab === carrier.carrierType.carrierTypeId
+        selectedTab === partner.partnerType.partnerTypeId
     );
 
   /**
-   * - - - - Selected Carrier logic (for both details and edit)
+   * - - - - Selected partner logic (for both details and edit)
    */
-  const [currentCarrier, setCurrentCarrier] = useState<Carrier | null>(null);
+  const [currentPartner, setCurrentPartner] = useState<Partner | null>(null);
 
   /**
-   * - - - Carrier details modal logic
+   * - - - Partner details modal logic
    */
 
-  const carrierDetailsDialogData = useDialog();
+  const partnerDetailsDialogData = useDialog();
 
-  const openDetailsDialog = (Carrier: Carrier) => {
-    setCurrentCarrier(Carrier);
+  const openDetailsDialog = (partner: Partner) => {
+    setCurrentPartner(partner);
 
-    carrierDetailsDialogData.open();
+    partnerDetailsDialogData.open();
   };
 
   /**
-   * - - - - New Carrier contacts logic
+   * - - - - New Partner contacts logic
    */
 
-  // List of contacts to be added when creating Carrier
-  const [contacts, setContacts] = useState<CarrierContactCreateBase[]>([]);
+  // List of contacts to be added when creating partner
+  const [contacts, setContacts] = useState<
+    PartnerContactCreateWithoutPartnerId[]
+  >([]);
 
   const addContact = () => {
     setContacts([
@@ -223,62 +254,66 @@ export default function CarriersPage() {
   };
 
   /**
-   * - - --  Carrier create logic
+   * - - --  Partner create logic
    */
 
   // Mutation
-  const createCarrierMutation = useMutation<Carrier, Error, CarrierCreate>({
-    mutationKey: ["createCarrierMutation"],
-    mutationFn: async (newData) => await createCarrier(newData),
+  const createPartnerMutation = useMutation<Partner, Error, PartnerCreate>({
+    mutationKey: ["createPartnerMutation"],
+    mutationFn: async (newData) => await createPartner(newData),
     onError(error) {
-      toast(`Failure creating carrier. ${error}`);
+      toast(`Failure creating partner. ${error}`);
     },
   });
 
-  const { isOpen: isNewCarrierOpen, setIsOpen: setIsNewCarrierOpen } =
+  const { isOpen: isNewPartnerOpen, setIsOpen: setIsNewPartnerOpen } =
     useDialog();
 
-  // Data for new Carrier on form in dialog
-  const [newCarrierData, setNewCarrierData] = useState<CarrierCreate>({
+  // Data for new partner on form in dialog
+  const [newPartnerData, setNewPartnerData] = useState<PartnerCreate>({
     name: "",
-    carrierTypeId: "",
+    countryId: null,
+    partnerTypeId: "",
     disabled: false,
     taxId: null,
+    webpage: null,
     contacts: [],
   });
 
-  const resetNewCarrierData = () => {
-    setNewCarrierData({
+  const resetNewPartnerData = () => {
+    setNewPartnerData({
       name: "",
-      carrierTypeId: "",
+      countryId: null,
+      partnerTypeId: "",
       disabled: false,
       taxId: null,
+      webpage: null,
       contacts: [],
     });
 
     resetContacts();
   };
 
-  const updateNewCarrierData = (newData: Partial<CarrierCreate>) => {
-    setNewCarrierData((c) => ({
+  const updateNewPartnerData = (newData: Partial<PartnerCreate>) => {
+    setNewPartnerData((c) => ({
       ...c,
       ...newData,
     }));
   };
 
-  const handleCreateCarrier = async () => {
+  const handleCreatePartner = async () => {
     // TODO Validate all data
-    const newCarrierName = String(newCarrierData?.name || "").trim();
+    const newPartnerName = String(newPartnerData?.name || "").trim();
 
-    if (!newCarrierName) {
-      toast("Carrier name is required");
+    if (!newPartnerName) {
+      toast("Partner name is required");
       return;
     }
 
-    const carrierTypeId = newCarrierData?.carrierTypeId || "";
+    const partnerTypeId = newPartnerData?.partnerTypeId || "";
 
-    if (!carrierTypeId) {
-      toast("Carrier type is required");
+    if (!partnerTypeId) {
+      toast("Partner type is required");
       return;
     }
 
@@ -299,30 +334,32 @@ export default function CarriersPage() {
       return;
     }
 
-    const newCarrier = await createCarrierMutation.mutateAsync({
-      name: newCarrierName,
-      carrierTypeId: carrierTypeId,
-      disabled: newCarrierData?.disabled || false,
-      taxId: newCarrierData?.taxId || null,
+    const newPartner = await createPartnerMutation.mutateAsync({
+      name: newPartnerName,
+      countryId: newPartnerData?.countryId || null,
+      partnerTypeId: partnerTypeId,
+      disabled: newPartnerData?.disabled || false,
+      taxId: newPartnerData?.taxId || null,
+      webpage: newPartnerData?.webpage || null,
       contacts: processedContacts,
     });
 
-    toast(`The carrier ${newCarrier.name} has been created successfully.`);
+    toast(`The partner ${newPartner.name} has been created successfully.`);
 
-    resetNewCarrierData();
-    setIsNewCarrierOpen(false);
+    resetNewPartnerData();
+    setIsNewPartnerOpen(false);
 
-    await reloadCarriers();
+    await reloadPartners();
   };
 
   /**
-   * - - - - Edit Carrier contacts logic
+   * - - - - Edit Partner contacts logic
    */
 
-  // List of contacts to be added when creating Carrier
-  const [editContacts, setEditContacts] = useState<CarrierContactCreateBase[]>(
-    []
-  );
+  // List of contacts to be added when creating partner
+  const [editContacts, setEditContacts] = useState<
+    PartnerContactCreateWithoutPartnerId[]
+  >([]);
 
   const addEditContact = () => {
     setEditContacts([
@@ -356,115 +393,119 @@ export default function CarriersPage() {
   };
 
   /**
-   * - - --  Carrier update
+   * - - --  Partner update
    */
 
   // Mutation
-  const updateCarrierMutation = useMutation<
-    Carrier,
+  const updatePartnerMutation = useMutation<
+    Partner,
     Error,
-    { carrierId: string; data: CarrierUpdate }
+    { partnerId: string; data: PartnerUpdate }
   >({
-    mutationKey: ["updateCarrierMutation"],
-    mutationFn: async ({ carrierId, data }) =>
-      await updateCarrier(carrierId, data),
+    mutationKey: ["updatePartnerMutation"],
+    mutationFn: async ({ partnerId, data }) =>
+      await updatePartner(partnerId, data),
     onError(error) {
-      toast(`Failure updating carrier. ${error}`);
+      toast(`Failure updating partner. ${error}`);
     },
   });
 
-  const { isOpen: isEditCarrierOpen, setIsOpen: setIsEditCarrierOpen } =
+  const { isOpen: isEditPartnerOpen, setIsOpen: setIsEditPartnerOpen } =
     useDialog();
 
-  const [editCarrierData, setEditCarrierData] = useState<CarrierUpdate>({
+  const [editPartnerData, setEditPartnerData] = useState<PartnerUpdate>({
     name: "",
   });
 
-  const updateEditCarrierData = (editData: CarrierUpdate) => {
-    setEditCarrierData((c) => ({
+  const updateEditPartnerData = (editData: PartnerUpdate) => {
+    setEditPartnerData((c) => ({
       ...c,
       ...editData,
     }));
   };
 
-  const handleEditCarrier = async () => {
+  const handleEditPartner = async () => {
     // TODO validate data
-    const editCarrierName = editCarrierData?.name?.trim();
+    const editPartnerName = editPartnerData?.name?.trim();
 
-    if (!editCarrierName) {
-      toast("Carrier name is required");
+    if (!editPartnerName) {
+      toast("Partner name is required");
       return;
     }
 
-    if (!currentCarrier) {
-      toast("Unable to get carrier data");
+    if (!currentPartner) {
+      toast("Unable to get partner data");
       return;
     }
 
-    const updatedCarrier = await updateCarrierMutation.mutateAsync({
-      carrierId: currentCarrier.carrierId,
+    const updatedPartner = await updatePartnerMutation.mutateAsync({
+      partnerId: currentPartner.partnerId,
       data: {
-        name: editCarrierName,
-        carrierTypeId: editCarrierData?.carrierTypeId || "",
-        disabled: editCarrierData?.disabled || false,
-        taxId: editCarrierData?.taxId || null,
+        name: editPartnerName,
+        countryId: editPartnerData?.countryId || null,
+        partnerTypeId: editPartnerData?.partnerTypeId || "",
+        disabled: editPartnerData?.disabled || false,
+        taxId: editPartnerData?.taxId || null,
+        webpage: editPartnerData?.webpage || null,
         contacts: editContacts || [],
       },
     });
 
-    toast(`The carrier ${updatedCarrier?.name} has been updated successfully.`);
+    toast(`The partner ${updatedPartner?.name} has been updated successfully.`);
 
-    setIsEditCarrierOpen(false);
-    await reloadCarriers();
+    setIsEditPartnerOpen(false);
+    await reloadPartners();
   };
 
-  const handleSetDisable = async (carrierId: string, value: boolean) => {
-    const updatedCarrier = await updateCarrierMutation.mutateAsync({
-      carrierId: carrierId,
+  const handleSetDisable = async (partnerId: string, value: boolean) => {
+    const updatedPartner = await updatePartnerMutation.mutateAsync({
+      partnerId: partnerId,
       data: {
         disabled: value || false,
       },
     });
 
     toast(
-      `The carrier ${updatedCarrier?.name} has been ${
-        updatedCarrier?.disabled ? "disabled" : "enabled"
+      `The partner ${updatedPartner?.name} has been ${
+        updatedPartner?.disabled ? "disabled" : "enabled"
       } successfully.`
     );
 
-    await reloadCarriers();
+    await reloadPartners();
     return;
   };
 
-  const openEditDialog = (carrier: Carrier) => {
-    setCurrentCarrier(carrier);
-    setEditCarrierData({
-      name: carrier?.name,
-      carrierTypeId: carrier?.carrierType.carrierTypeId || "",
-      disabled: carrier?.disabled,
-      taxId: carrier?.taxId,
-      contacts: carrier?.contacts || [],
+  const openEditDialog = (partner: Partner) => {
+    setCurrentPartner(partner);
+    setEditPartnerData({
+      name: partner?.name,
+      countryId: partner?.country?.countryId || null,
+      partnerTypeId: partner?.partnerType.partnerTypeId || "",
+      disabled: partner?.disabled,
+      taxId: partner?.taxId,
+      webpage: partner?.webpage,
+      contacts: partner?.contacts || [],
     });
 
-    setEditContacts(carrier?.contacts || []);
+    setEditContacts(partner?.contacts || []);
 
-    setIsEditCarrierOpen(true);
+    setIsEditPartnerOpen(true);
   };
 
   /**
-   * - - --  Carrier delete logic
+   * - - --  Partner delete logic
    */
 
   // Mutation
-  const deleteCarrierMutation = useMutation<boolean, Error, string>({
-    mutationKey: ["deleteCarrierMutation"],
-    mutationFn: async (carrierId) => await deleteCarrier(carrierId),
+  const deletePartnerMutation = useMutation<boolean, Error, string>({
+    mutationKey: ["deletePartnerMutation"],
+    mutationFn: async (partnerId) => await deletePartner(partnerId),
     onError(error) {
-      toast(`Failure deleting carrier. ${error}`);
+      toast(`Failure deleting partner. ${error}`);
     },
   });
 
-  const { isOpen: isDeleteCarrierOpen, setIsOpen: setIsDeleteCarrierOpen } =
+  const { isOpen: isDeletePartnerOpen, setIsOpen: setIsDeletePartnerOpen } =
     useDialog();
 
   const [deleteConfirmationText, setDeleteConfirmationText] =
@@ -472,24 +513,24 @@ export default function CarriersPage() {
 
   const openDeleteConfirmationDialog = () => {
     setDeleteConfirmationText("");
-    setIsDeleteCarrierOpen(true);
+    setIsDeletePartnerOpen(true);
   };
 
-  const handleDeleteCarrier = async (id: string) => {
+  const handleDeletePartner = async (id: string) => {
     if (!id) {
-      toast("Unable to delete carrier. No ID found");
+      toast("Unable to delete partner. No ID found");
       return;
     }
 
-    const success = await deleteCarrierMutation.mutateAsync(id);
+    const success = await deletePartnerMutation.mutateAsync(id);
 
     if (success) {
       // Close modal
-      setIsDeleteCarrierOpen(false);
-      toast("The carrier has been deleted successfully.");
-      await reloadCarriers();
+      setIsDeletePartnerOpen(false);
+      toast("The partner has been deleted successfully.");
+      await reloadPartners();
     } else {
-      toast("Failed to delete the carrier.");
+      toast("Failed to delete the partner.");
     }
   };
 
@@ -497,28 +538,30 @@ export default function CarriersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Carriers</h1>
-          <p className="text-muted-foreground">Manage your carriers</p>
+          <h1 className="text-3xl font-bold tracking-tight">Partners</h1>
+          <p className="text-muted-foreground">
+            Manage your commercial partners and allies
+          </p>
         </div>
-        {/* Create Carrier dialog */}
+        {/* Create partner dialog */}
         <Dialog
-          open={isNewCarrierOpen}
+          open={isNewPartnerOpen}
           onOpenChange={(open) => {
-            resetNewCarrierData();
-            setIsNewCarrierOpen(open);
+            resetNewPartnerData();
+            setIsNewPartnerOpen(open);
           }}
         >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              New Carrier
+              New Partner
             </Button>
           </DialogTrigger>
           <DialogContent className="min-w-fit max-w-[40rem]">
             <DialogHeader>
-              <DialogTitle>Create new carrier</DialogTitle>
+              <DialogTitle>Create new partner</DialogTitle>
               <DialogDescription>
-                Add a new carrier to your system.
+                Add a new partner to your system.
               </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pl-1 pr-4">
@@ -529,49 +572,64 @@ export default function CarriersPage() {
                 <div className="grid grid-cols-2 w-full gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">
-                      Carrier name <span className="text-red-500">*</span>
+                      Partner name <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="name"
-                      value={newCarrierData?.name || ""}
+                      value={newPartnerData?.name || ""}
                       onChange={(e) =>
-                        updateNewCarrierData({ name: e.target.value })
+                        updateNewPartnerData({ name: e.target.value })
                       }
-                      placeholder="Enter carrier name"
+                      placeholder="Enter partner name"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="name">
-                      Carrier type <span className="text-red-500">*</span>
+                      Partner type <span className="text-red-500">*</span>
                     </Label>
                     <Select
-                      value={newCarrierData.carrierTypeId}
+                      value={newPartnerData.partnerTypeId}
                       onValueChange={(value) =>
-                        updateNewCarrierData({ carrierTypeId: value })
+                        updateNewPartnerData({ partnerTypeId: value })
                       }
-                      disabled={carrierTypesIsLoading || carrierTypesIsError}
+                      disabled={partnerTypesIsLoading || partnerTypesIsError}
                     >
                       <SelectTrigger
-                        id={"CarrierType"}
-                        disabled={carrierTypesIsLoading || carrierTypesIsError}
+                        id={"partnerType"}
+                        disabled={partnerTypesIsLoading || partnerTypesIsError}
                       >
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
 
                       <SelectContent>
-                        {!carrierTypes.length
+                        {!partnerTypes.length
                           ? null
-                          : carrierTypes.map((type) => (
+                          : partnerTypes.map((type) => (
                               <SelectItem
-                                value={type.carrierTypeId}
-                                key={type.carrierTypeId}
+                                value={type.partnerTypeId}
+                                key={type.partnerTypeId}
                               >
                                 {type.name}
                               </SelectItem>
                             ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="country">
+                      Country{" "}
+                      <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <CountrySelector
+                      countries={countries || []}
+                      isLoading={countriesIsLoading}
+                      value={newPartnerData?.countryId || null}
+                      onValueChange={(value) =>
+                        updateNewPartnerData({ countryId: value })
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -581,11 +639,26 @@ export default function CarriersPage() {
                     </Label>
                     <Input
                       id="taxId"
-                      value={newCarrierData?.taxId || ""}
+                      value={newPartnerData?.taxId || ""}
                       onChange={(e) =>
-                        updateNewCarrierData({ taxId: e.target.value })
+                        updateNewPartnerData({ taxId: e.target.value })
                       }
                       placeholder="Enter tax ID"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="webpage">
+                      Webpage{" "}
+                      <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Input
+                      id="webpage"
+                      value={newPartnerData?.webpage || ""}
+                      onChange={(e) =>
+                        updateNewPartnerData({ webpage: e.target.value })
+                      }
+                      placeholder="Enter webpage URL"
                     />
                   </div>
                 </div>
@@ -711,24 +784,61 @@ export default function CarriersPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Contact */}
+                {/* <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contactName">Contact name</Label>
+                  <Input
+                    id="contactName"
+                    value={newPartnerData?.contactName || ""}
+                    onChange={(e) =>
+                      updateNewPartnerData({ contactName: e.target.value })
+                    }
+                    placeholder="Teresa Torres"
+                  />
+                  </div>
+                <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <Input
+                    id="contactPhone"
+                    value={newPartnerData?.contactPhone || ""}
+                    onChange={(e) =>
+                      updateNewPartnerData({ contactPhone: e.target.value })
+                    }
+                    placeholder="+12 456 78 90"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Contact email</Label>
+                <Input
+                  id="contactEmail"
+                  value={newPartnerData?.contactEmail || ""}
+                  onChange={(e) =>
+                  updateNewPartnerData({ contactEmail: e.target.value })
+                  }
+                  placeholder="agent@email.com"
+                />
+              </div> */}
               </div>
             </ScrollArea>
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
-                  resetNewCarrierData();
-                  setIsNewCarrierOpen(false);
+                  resetNewPartnerData();
+                  setIsNewPartnerOpen(false);
                 }}
               >
                 Cancel
               </Button>
               <Button
-                disabled={createCarrierMutation.isPending}
-                onClick={handleCreateCarrier}
-                loading={createCarrierMutation.isPending}
+                disabled={createPartnerMutation.isPending}
+                onClick={handleCreatePartner}
+                loading={createPartnerMutation.isPending}
               >
-                {createCarrierMutation.isPending ? "Creating..." : "Create"}
+                {createPartnerMutation.isPending ? "Creating..." : "Create"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -740,7 +850,7 @@ export default function CarriersPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search Carriers..."
+            placeholder="Search partners..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -756,13 +866,13 @@ export default function CarriersPage() {
         >
           <TabsList className="gap-x-2">
             <TabsTrigger className="cursor-pointer" value={ALL_TAB_OPTION}>
-              All carriers
+              All partners
             </TabsTrigger>
-            {carrierTypes?.map((type) => (
+            {partnerTypes?.map((type) => (
               <TabsTrigger
                 className="cursor-pointer"
-                key={type.carrierTypeId}
-                value={type.carrierTypeId}
+                key={type.partnerTypeId}
+                value={type.partnerTypeId}
               >
                 {type.name}
               </TabsTrigger>
@@ -770,42 +880,42 @@ export default function CarriersPage() {
           </TabsList>
 
           <TabsContent value={ALL_TAB_OPTION} className="mt-4">
-            <CarriersTable
-              carriers={filteredCarriers}
-              isLoading={isLoadingCarriersData}
-              isError={isErrorCarriersData}
-              error={carrierTypesError || carriersError}
+            <PartnersTable
+              partners={filteredPartners}
+              isLoading={isLoadingPartnersData}
+              isError={isErrorPartnersData}
+              error={partnerTypesError || partnersError}
               userRoleId={userRole}
-              onOpenDetails={(carrier) => openDetailsDialog(carrier)}
-              onDelete={(carrier) => {
-                setCurrentCarrier(carrier);
+              onOpenDetails={(partner) => openDetailsDialog(partner)}
+              onDelete={(partner) => {
+                setCurrentPartner(partner);
                 openDeleteConfirmationDialog();
               }}
-              onSetDisable={(carrier) =>
-                handleSetDisable(carrier.carrierId, !carrier?.disabled)
+              onSetDisable={(partner) =>
+                handleSetDisable(partner.partnerId, !partner?.disabled)
               }
             />
           </TabsContent>
 
-          {carrierTypes?.map((type) => (
+          {partnerTypes?.map((type) => (
             <TabsContent
-              key={type.carrierTypeId}
-              value={type.carrierTypeId}
+              key={type.partnerTypeId}
+              value={type.partnerTypeId}
               className="mt-4"
             >
-              <CarriersTable
-                carriers={filteredCarriers}
-                isLoading={isLoadingCarriersData}
-                isError={isErrorCarriersData}
-                error={carrierTypesError || carriersError}
+              <PartnersTable
+                partners={filteredPartners}
+                isLoading={isLoadingPartnersData}
+                isError={isErrorPartnersData}
+                error={partnerTypesError || partnersError}
                 userRoleId={userRole}
-                onOpenDetails={(carrier) => openDetailsDialog(carrier)}
-                onDelete={(carrier) => {
-                  setCurrentCarrier(carrier);
+                onOpenDetails={(partner) => openDetailsDialog(partner)}
+                onDelete={(partner) => {
+                  setCurrentPartner(partner);
                   openDeleteConfirmationDialog();
                 }}
-                onSetDisable={(carrier) =>
-                  handleSetDisable(carrier.carrierId, !carrier?.disabled)
+                onSetDisable={(partner) =>
+                  handleSetDisable(partner.partnerId, !partner?.disabled)
                 }
               />
             </TabsContent>
@@ -815,14 +925,14 @@ export default function CarriersPage() {
 
       {/* Details modal */}
       <Dialog
-        open={carrierDetailsDialogData.isOpen}
-        onOpenChange={carrierDetailsDialogData.setIsOpen}
+        open={partnerDetailsDialogData.isOpen}
+        onOpenChange={partnerDetailsDialogData.setIsOpen}
       >
         <DialogContent className="min-w-fit max-w-[40rem]">
           <DialogHeader>
-            <DialogTitle>Carrier details</DialogTitle>
+            <DialogTitle>Partner details</DialogTitle>
             <DialogDescription className="text-xs">
-              View carrier information
+              View partner information
             </DialogDescription>
           </DialogHeader>
 
@@ -834,16 +944,33 @@ export default function CarriersPage() {
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4 w-full">
                 <div className="space-y-2">
-                  <Label>Carrier name</Label>
-                  <div>{currentCarrier?.name || "-"}</div>
+                  <Label>Partner name</Label>
+                  <div>{currentPartner?.name || "-"}</div>
                 </div>
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <div>{currentCarrier?.carrierType?.name || "-"}</div>
+                  <div>{currentPartner?.partnerType?.name || "-"}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Country</Label>
+                  <div>
+                    {currentPartner?.country ? (
+                      <>
+                        {currentPartner?.country.name} (
+                        {currentPartner.country.iso2Code})
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Tax ID</Label>
-                  <div>{currentCarrier?.taxId || "-"}</div>
+                  <div>{currentPartner?.taxId || "-"}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="">Webpage</Label>
+                  <div>{currentPartner?.webpage || "-"}</div>
                 </div>
               </div>
 
@@ -857,13 +984,13 @@ export default function CarriersPage() {
                 </Label>
               </div>
 
-              {!currentCarrier?.contacts?.length ? (
+              {!currentPartner?.contacts?.length ? (
                 <p className="text-sm text-muted-foreground">
                   No contacts added yet.
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {currentCarrier.contacts.map((contact, index) => (
+                  {currentPartner.contacts.map((contact, index) => (
                     <Card key={index}>
                       <CardHeader className="px-4 py-0">
                         <div className="flex justify-between items-start">
@@ -872,7 +999,7 @@ export default function CarriersPage() {
                           </CardTitle>
                         </div>
                         <CardDescription className="text-xs">
-                          {contact.carrierContactId}
+                          {contact.partnerContactId}
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="px-4 pt-0">
@@ -911,6 +1038,21 @@ export default function CarriersPage() {
                 </div>
               )}
 
+              {/* <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Contact name</Label>
+                <div>{currentPartner?.contactName || "-"}</div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Contact phone</Label>
+                <div>{currentPartner?.contactPhone || "-"}</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail">Contact email</Label>
+              <div>{currentPartner?.contactEmail || "-"}</div>
+            </div> */}
+
               <Separator />
 
               {/* Others */}
@@ -923,19 +1065,19 @@ export default function CarriersPage() {
                 <div className="space-y-2">
                   <Label>Internal ID</Label>
                   <div className="whitespace-nowrap">
-                    {currentCarrier?.carrierId || "-"}
+                    {currentPartner?.partnerId || "-"}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Created at</Label>
                   <div className="whitespace-nowrap">
-                    {currentCarrier?.createdAt || "-"}
+                    {currentPartner?.createdAt || "-"}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Last update</Label>
                   <div className="whitespace-nowrap">
-                    {currentCarrier?.updatedAt || "-"}
+                    {currentPartner?.updatedAt || "-"}
                   </div>
                 </div>
               </div>
@@ -945,34 +1087,34 @@ export default function CarriersPage() {
           <DialogFooter>
             <Button
               onClick={() => {
-                if (!currentCarrier) {
+                if (!currentPartner) {
                   console.error(
-                    "No selected Carrier found. Unable to open edit dialog after details dialog"
+                    "No selected partner found. Unable to open edit dialog after details dialog"
                   );
                   return;
                 }
 
                 // close details dialog
-                carrierDetailsDialogData.close();
+                partnerDetailsDialogData.close();
 
-                openEditDialog(currentCarrier);
+                openEditDialog(currentPartner);
               }}
             >
               Edit
             </Button>
-            <Button variant="outline" onClick={carrierDetailsDialogData.close}>
+            <Button variant="outline" onClick={partnerDetailsDialogData.close}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Carrier dialog */}
-      <Dialog open={isEditCarrierOpen} onOpenChange={setIsEditCarrierOpen}>
+      {/* Edit partner dialog */}
+      <Dialog open={isEditPartnerOpen} onOpenChange={setIsEditPartnerOpen}>
         <DialogContent className="min-w-fit max-w-[40rem]">
           <DialogHeader>
-            <DialogTitle>Edit Carrier</DialogTitle>
-            <DialogDescription>Update Carrier information.</DialogDescription>
+            <DialogTitle>Edit Partner</DialogTitle>
+            <DialogDescription>Update partner information.</DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] pl-1 pr-4">
             <div className="space-y-4 py-4">
@@ -982,49 +1124,64 @@ export default function CarriersPage() {
               <div className="grid grid-cols-2 w-full gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">
-                    Carrier name <span className="text-red-500">*</span>
+                    Partner name <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="name"
-                    value={editCarrierData?.name || ""}
+                    value={editPartnerData?.name || ""}
                     onChange={(e) =>
-                      updateEditCarrierData({ name: e.target.value })
+                      updateEditPartnerData({ name: e.target.value })
                     }
-                    placeholder="Enter carrier name"
+                    placeholder="Enter partner name"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="name">
-                    Carrier type <span className="text-red-500">*</span>
+                    Partner type <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    value={editCarrierData.carrierTypeId}
+                    value={editPartnerData.partnerTypeId}
                     onValueChange={(value) =>
-                      updateEditCarrierData({ carrierTypeId: value })
+                      updateEditPartnerData({ partnerTypeId: value })
                     }
-                    disabled={carrierTypesIsLoading || carrierTypesIsError}
+                    disabled={partnerTypesIsLoading || partnerTypesIsError}
                   >
                     <SelectTrigger
-                      id={"carrierType"}
-                      disabled={carrierTypesIsLoading || carrierTypesIsError}
+                      id={"partnerType"}
+                      disabled={partnerTypesIsLoading || partnerTypesIsError}
                     >
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
 
                     <SelectContent>
-                      {!carrierTypes.length
+                      {!partnerTypes.length
                         ? null
-                        : carrierTypes.map((type) => (
+                        : partnerTypes.map((type) => (
                             <SelectItem
-                              value={type.carrierTypeId}
-                              key={type.carrierTypeId}
+                              value={type.partnerTypeId}
+                              key={type.partnerTypeId}
                             >
                               {type.name}
                             </SelectItem>
                           ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="country">
+                    Country{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <CountrySelector
+                    countries={countries || []}
+                    isLoading={countriesIsLoading}
+                    value={editPartnerData?.countryId || null}
+                    onValueChange={(value) =>
+                      updateEditPartnerData({ countryId: value })
+                    }
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -1034,11 +1191,26 @@ export default function CarriersPage() {
                   </Label>
                   <Input
                     id="taxId"
-                    value={editCarrierData?.taxId || ""}
+                    value={editPartnerData?.taxId || ""}
                     onChange={(e) =>
-                      updateEditCarrierData({ taxId: e.target.value })
+                      updateEditPartnerData({ taxId: e.target.value })
                     }
                     placeholder="Enter tax ID"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webpage">
+                    Webpage{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="webpage"
+                    value={editPartnerData?.webpage || ""}
+                    onChange={(e) =>
+                      updateEditPartnerData({ webpage: e.target.value })
+                    }
+                    placeholder="Enter webpage URL"
                   />
                 </div>
               </div>
@@ -1176,27 +1348,27 @@ export default function CarriersPage() {
           </ScrollArea>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditCarrierOpen(false)}>
+            <Button variant="ghost" onClick={() => setIsEditPartnerOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="outline"
               disabled={
-                updateCarrierMutation.isPending || userRole !== UserRoles.ADMIN
+                updatePartnerMutation.isPending || userRole !== UserRoles.ADMIN
               }
               onClick={() => {
-                setIsEditCarrierOpen(false);
+                setIsEditPartnerOpen(false);
                 openDeleteConfirmationDialog();
               }}
             >
               Delete
             </Button>
             <Button
-              onClick={handleEditCarrier}
-              disabled={updateCarrierMutation.isPending}
-              loading={updateCarrierMutation.isPending}
+              onClick={handleEditPartner}
+              disabled={updatePartnerMutation.isPending}
+              loading={updatePartnerMutation.isPending}
             >
-              {updateCarrierMutation.isPending ? "Saving..." : "Save changes"}
+              {updatePartnerMutation.isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1205,16 +1377,16 @@ export default function CarriersPage() {
       {/* Delete confirmation modal */}
       <DeleteConfirmationDialog
         DialogProps={{
-          open: isDeleteCarrierOpen,
-          onOpenChange: setIsDeleteCarrierOpen,
+          open: isDeletePartnerOpen,
+          onOpenChange: setIsDeletePartnerOpen,
         }}
-        title={"Carrier delete"}
-        description={"Delete Carrier information"}
+        title={"Partner delete"}
+        description={"Delete partner information"}
         body={
           <div className="">
-            You are about to delete the carrier{" "}
+            You are about to delete the partner{" "}
             <span className="font-semibold underline">
-              {currentCarrier?.name}
+              {currentPartner?.name}
             </span>{" "}
             and all their associated data permanently, including operations.
             This cannot be undone.
@@ -1223,56 +1395,55 @@ export default function CarriersPage() {
         confirmationText={deleteConfirmationText}
         updateConfirmationText={(val) => setDeleteConfirmationText(val)}
         onDelete={() => {
-          handleDeleteCarrier(currentCarrier?.carrierId || "");
+          handleDeletePartner(currentPartner?.partnerId || "");
         }}
-        onCancel={() => setIsDeleteCarrierOpen(false)}
-        isDeleting={deleteCarrierMutation.isPending}
+        onCancel={() => setIsDeletePartnerOpen(false)}
+        isDeleting={deletePartnerMutation.isPending}
       />
     </div>
   );
 }
 
-type CarriersTableProps = {
+type PartnersTableProps = {
   isLoading?: boolean;
   isError?: boolean;
   error?: unknown;
-  carriers: Carrier[] | undefined;
-  onOpenDetails: (Carrier: Carrier) => void;
-  onDelete: (Carrier: Carrier) => void;
-  onSetDisable: (Carrier: Carrier) => void;
+  partners: Partner[] | undefined;
+  onOpenDetails: (partner: Partner) => void;
+  onDelete: (partner: Partner) => void;
+  onSetDisable: (partner: Partner) => void;
   userRoleId?: string;
 };
 
-const CarriersTable: FC<CarriersTableProps> = ({
+const PartnersTable: FC<PartnersTableProps> = ({
   isLoading = false,
   isError = false,
   error,
-  carriers,
+  partners,
   onOpenDetails,
   onDelete,
   onSetDisable,
   userRoleId,
 }) => {
   /**
-   * Get the custom styles for each carrier type ID (default styles if not included)
+   * Get the custom styles for each partner type ID (default styles if not included)
    *
    * @param {string} typeId
    *
    * @returns {string}
    */
-  const getCarrierTypeStyles = (type: string) => {
-    const styles: Partial<Record<CarrierTypesIds, string>> = {
-      [CarrierTypesIds.AIRLINE]: "bg-blue-100 text-blue-800",
-      [CarrierTypesIds.SHIPPING_LINE]: "bg-purple-100 text-purple-800",
-      [CarrierTypesIds.ROAD_FREIGHT_INTERNATIONAL]:
-        "bg-yellow-100 text-yellow-800",
-      [CarrierTypesIds.COURIER]: "bg-green-100 text-green-800",
+  const getPartnerTypeStyles = (type: string) => {
+    const styles: Partial<Record<PartnerTypesIds, string>> = {
+      [PartnerTypesIds.LOGISTICS_OPERATOR]: "bg-blue-100 text-blue-800",
+      [PartnerTypesIds.PORT_AGENT]: "bg-purple-100 text-purple-800",
+      [PartnerTypesIds.INSURER]: "bg-yellow-100 text-yellow-800",
+      [PartnerTypesIds.CUSTOMS_BROKER]: "bg-green-100 text-green-800",
       // TODO add the rest
     };
 
     const defaultStyle = "bg-gray-100 text-gray-800";
 
-    return styles?.[type as CarrierTypesIds] || defaultStyle;
+    return styles?.[type as PartnerTypesIds] || defaultStyle;
   };
 
   return (
@@ -1282,6 +1453,7 @@ const CarriersTable: FC<CarriersTableProps> = ({
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Country</TableHead>
             <TableHead>Contacts</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -1290,7 +1462,7 @@ const CarriersTable: FC<CarriersTableProps> = ({
           {isLoading ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={5}
                 className="text-center py-8 text-muted-foreground"
               >
                 Loading...
@@ -1299,31 +1471,31 @@ const CarriersTable: FC<CarriersTableProps> = ({
           ) : isError ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={5}
                 className="text-center py-8 text-muted-foreground"
               >
-                Unable to get carriers data. (
+                Unable to get partners data. (
                 {String(error || "unknown details")})
               </TableCell>
             </TableRow>
-          ) : carriers?.length === 0 ? (
+          ) : partners?.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={5}
                 className="text-center py-8 text-muted-foreground"
               >
-                No carriers found
+                No partners found
               </TableCell>
             </TableRow>
           ) : (
-            carriers?.map((carrier) => (
-              <TableRow key={carrier.carrierId}>
+            partners?.map((partner) => (
+              <TableRow key={partner.partnerId}>
                 <TableCell
                   className="font-medium"
-                  onClick={() => onOpenDetails(carrier)}
+                  onClick={() => onOpenDetails(partner)}
                 >
-                  {carrier?.name || "-"}
-                  {!!carrier?.disabled && (
+                  {partner?.name || "-"}
+                  {!!partner?.disabled && (
                     <Badge
                       variant="outline"
                       className="bg-red-100 text-red-800 hover:bg-red-100 ml-2"
@@ -1334,31 +1506,40 @@ const CarriersTable: FC<CarriersTableProps> = ({
                 </TableCell>
                 <TableCell
                   className="font-medium text-xs"
-                  onClick={() => onOpenDetails(carrier)}
+                  onClick={() => onOpenDetails(partner)}
                 >
                   <Badge
-                    className={getCarrierTypeStyles(
-                      carrier?.carrierType.carrierTypeId
+                    className={getPartnerTypeStyles(
+                      partner?.partnerType.partnerTypeId
                     )}
                   >
-                    {carrier?.carrierType?.name || "-"}
+                    {partner?.partnerType?.name || "-"}
                   </Badge>
                 </TableCell>
-
-                <TableCell className="" onClick={() => onOpenDetails(carrier)}>
+                <TableCell className="" onClick={() => onOpenDetails(partner)}>
+                  <div className="text-sm">
+                    <div>{partner?.country?.iso2Code || "-"}</div>
+                    {partner?.country?.name && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {partner?.country?.name}
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="" onClick={() => onOpenDetails(partner)}>
                   <div className="text-sm">
                     <div>
-                      {carrier?.contacts?.[0]?.name || "-"}{" "}
-                      {carrier?.contacts?.length > 1 && (
+                      {partner?.contacts?.[0]?.name || "-"}{" "}
+                      {partner?.contacts?.length > 1 && (
                         <span className="font-semibold text-xs text-muted-foreground">
-                          (+{carrier?.contacts?.length - 1})
+                          (+{partner?.contacts?.length - 1})
                         </span>
                       )}
                     </div>
-                    {carrier?.contacts?.[0]?.email && (
+                    {partner?.contacts?.[0]?.email && (
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <Mail className="h-3 w-3" />{" "}
-                        {carrier?.contacts?.[0]?.email}
+                        {partner?.contacts?.[0]?.email}
                       </div>
                     )}
                   </div>
@@ -1373,16 +1554,16 @@ const CarriersTable: FC<CarriersTableProps> = ({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onOpenDetails(carrier)}>
+                      <DropdownMenuItem onClick={() => onOpenDetails(partner)}>
                         <Eye className="mr-2 h-4 w-4" />
                         View
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onOpenDetails(carrier)}>
+                      <DropdownMenuItem onClick={() => onOpenDetails(partner)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onSetDisable(carrier)}>
-                        {!carrier?.disabled ? (
+                      <DropdownMenuItem onClick={() => onSetDisable(partner)}>
+                        {!partner?.disabled ? (
                           <>
                             <Ban className="mr-2 h-4 w-4" />
                             Disable
@@ -1396,7 +1577,7 @@ const CarriersTable: FC<CarriersTableProps> = ({
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          onDelete(carrier);
+                          onDelete(partner);
                         }}
                         disabled={
                           !!userRoleId && userRoleId !== UserRoles.ADMIN

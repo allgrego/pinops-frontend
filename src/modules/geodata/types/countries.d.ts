@@ -1,21 +1,24 @@
-export type Country = {
-  idCountry: number;
-  countryName: string;
-  countryIso3: string;
-  countryIso2: string;
-  numericCode: number;
-  phoneCode: string;
-  capital: string;
-  currency: string;
-  currencyName: string;
-  currencySymbol: string;
-  topLevelDomain: string;
-  nativeName: string;
-  region: string;
-  subregion: string;
-  latitude: number;
-  longitude: number;
-  emoji: string;
-  emojiU: string;
-  active: boolean;
-};
+/**
+ * - - - Countries
+ */
+// Backend
+export interface CountryBaseBackend {
+  name: string;
+  iso2_code: string;
+  iso3_code: string;
+}
+
+export interface CountryBackend extends CountryBaseBackend {
+  country_id: number;
+}
+
+// Internal
+export interface CountryBase {
+  name: CountryBaseBackend["name"];
+  iso2Code: CountryBaseBackend["iso2_code"];
+  iso3Code: CountryBaseBackend["iso3_code"];
+}
+
+export interface Country extends CountryBase {
+  countryId: CountryBackend["country_id"];
+}

@@ -1,4 +1,4 @@
-import { BACKEND_BASE_URL } from "@/core/setup/routes";
+import { getRoute } from "@/core/lib/routes";
 
 import type {
   Client,
@@ -16,7 +16,7 @@ import type {
  */
 export const getAllClients = async (): Promise<Client[]> => {
   try {
-    const url = `${BACKEND_BASE_URL}/clients`;
+    const url = getRoute("backend-clients-get-all");
 
     const response = await fetch(url);
 
@@ -40,6 +40,8 @@ export const getAllClients = async (): Promise<Client[]> => {
       contactName: client?.contact_name || "",
       createdAt: client?.created_at || "",
       contactPhone: client?.contact_phone || "",
+      address: client?.address || "",
+      disabled: client?.disabled || false,
     }));
 
     return clients;
@@ -69,9 +71,11 @@ export const createClient = async (
       contact_email: newClientData?.contactEmail,
       contact_name: newClientData?.contactName,
       contact_phone: newClientData?.contactPhone,
+      address: newClientData?.address,
+      disabled: newClientData?.disabled,
     };
 
-    const url = `${BACKEND_BASE_URL}/clients`;
+    const url = getRoute("backend-clients-create");
 
     const response = await fetch(url, {
       method: "POST",
@@ -98,6 +102,7 @@ export const createClient = async (
       contactName: jsonResponse?.contact_name || "",
       createdAt: jsonResponse?.created_at || "",
       contactPhone: jsonResponse?.contact_phone || "",
+      disabled: jsonResponse?.disabled || false,
     };
 
     return newClient;
@@ -129,9 +134,11 @@ export const updateClient = async (
       contact_email: newClientData?.contactEmail,
       contact_name: newClientData?.contactName,
       contact_phone: newClientData?.contactPhone,
+      address: newClientData?.address,
+      disabled: newClientData?.disabled,
     };
 
-    const url = `${BACKEND_BASE_URL}/clients/${clientId}`;
+    const url = getRoute("backend-clients-by-id-update", [clientId]);
 
     const response = await fetch(url, {
       method: "PATCH",
@@ -158,6 +165,8 @@ export const updateClient = async (
       contactName: jsonResponse?.contact_name || "",
       createdAt: jsonResponse?.created_at || "",
       contactPhone: jsonResponse?.contact_phone || "",
+      address: jsonResponse?.address || "",
+      disabled: jsonResponse?.disabled || false,
     };
 
     return updatedClient;
@@ -178,7 +187,7 @@ export const deleteClient = async (clientId: string): Promise<boolean> => {
   try {
     if (!clientId) throw new Error("Client ID not found");
 
-    const url = `${BACKEND_BASE_URL}/clients/${clientId}`;
+    const url = getRoute("backend-clients-by-id-delete", [clientId]);
 
     const response = await fetch(url, {
       method: "DELETE",

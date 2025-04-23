@@ -1,12 +1,58 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { DEFAULT_PASSWORD, users } from "@/modules/auth/setup/auth";
-import { User } from "@/modules/auth/types/user";
+import { getRoute } from "@/core/lib/routes";
 
-// Authentication functions
-export const findUserByEmail = (email: string): User | undefined => {
-  return users.find((user) => user.email === email);
+import { UserLoginBackend } from "@/modules/auth/types/auth";
+
+import { User } from "@/modules/users/types/users.types";
+
+/**
+ * Login by getting user data from backend if valid credentials
+ *
+ * @param {string} email
+ * @param {string} password
+ *
+ * @return {Promise<User | null>} user data if valid credentials, null otherwise
+ */
+export const validateCredentials = async (
+  email: string,
+  password: string
+): Promise<User | null> => {
+  try {
+    const url = getRoute("backend-login");
+
+    const body: UserLoginBackend = {
+      email: email.trim().toLowerCase(),
+      password: password,
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 401) {
+      return null; // Invalid credentials
+    }
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const user: User | undefined = await response.json();
+
+    if (!user) {
+      throw new Error("No data obtained on login");
+    }
+
+    return user;
+  } catch (error) {
+    console.error("Failure logging in:", error);
+    throw error;
+  }
 };
 
 // Auth store with Zustand
@@ -28,16 +74,19 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (email: string, password: string) => {
-        // TODO validate the password here
+        try {
+          const user = await validateCredentials(email, password);
 
-        const user = findUserByEmail(email);
+          if (!user) {
+            return { success: false, message: "Invalid credentials" };
+          }
 
-        if (!user || password.trim() !== DEFAULT_PASSWORD?.trim()) {
-          return { success: false, message: "Invalid email or password" };
+          set({ user, isAuthenticated: true });
+          return { success: true };
+        } catch (error) {
+          console.error("Failure in login", error);
+          return { success: false, message: `Unable to login. ${error}` };
         }
-
-        set({ user, isAuthenticated: true });
-        return { success: true };
       },
 
       logout: (callback) => {
