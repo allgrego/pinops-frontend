@@ -49,14 +49,14 @@ const navItems = [
     icon: Users,
   },
   {
+    name: "Partners",
+    href: getRoute("partners"),
+    icon: UserCog,
+  },
+  {
     name: "Carriers",
     href: getRoute("carriers"),
     icon: Ship,
-  },
-  {
-    name: "International Agents",
-    href: "/app/agents",
-    icon: UserCog,
   },
 ];
 

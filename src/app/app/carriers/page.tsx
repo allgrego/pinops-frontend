@@ -43,20 +43,18 @@ import {
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
 import { UserRoles } from "@/modules/auth/setup/auth";
-import useCarriers from "@/modules/providers/hooks/useCarriers";
+import useCarriers from "@/modules/carriers/hooks/useCarriers";
 import {
   createCarrier,
   deleteCarrier,
-  getCarrierTypeName,
   updateCarrier,
-} from "@/modules/providers/lib/carriers";
+} from "@/modules/carriers/lib/carriers";
 import {
   type Carrier,
   type CarrierCreate,
   type CarrierType,
-  CarrierTypes,
   type CarrierUpdate,
-} from "@/modules/providers/types/carriers.types";
+} from "@/modules/carriers/types/carriers.types";
 
 export default function CarriersPage() {
   /**
@@ -134,7 +132,7 @@ export default function CarriersPage() {
   // Data for new carrier on form in dialog
   const [newCarrierData, setNewCarrierData] = useState<CarrierCreate>({
     name: "",
-    type: CarrierTypes.SHIPPING_LINE,
+    type: "shipping_line",
     contactEmail: null,
     contactName: null,
     contactPhone: null,
@@ -143,7 +141,7 @@ export default function CarriersPage() {
   const resetNewCarrierData = () => {
     setNewCarrierData({
       name: "",
-      type: CarrierTypes.SHIPPING_LINE,
+      type: "shipping_line",
       contactEmail: null,
       contactName: null,
       contactPhone: null,
@@ -316,13 +314,13 @@ export default function CarriersPage() {
 
   const getCarrierTypeStyles = (type: string) => {
     switch (type) {
-      case CarrierTypes.AIRLINE:
+      case "airline":
         return "bg-blue-100 text-blue-800";
-      case CarrierTypes.SHIPPING_LINE:
+      case "shipping_line":
         return "bg-purple-100 text-purple-800";
-      case CarrierTypes.ROAD_FREIGHT_COMPANY:
+      case "road":
         return "bg-yellow-100 text-yellow-800";
-      case CarrierTypes.RAILWAY_COMPANY:
+      case "railway":
         return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -381,9 +379,9 @@ export default function CarriersPage() {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(CarrierTypes).map((carrType) => (
+                    {Object.values({}).map((carrType) => (
                       <SelectItem key={carrType} value={carrType}>
-                        {getCarrierTypeName(carrType)}
+                        {carrType}
                       </SelectItem>
                     ))}
                   </SelectContent>

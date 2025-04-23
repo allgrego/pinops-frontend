@@ -61,11 +61,13 @@ export interface PartnerBackend extends PartnerBaseBackend {
 
   partner_type: PartnerTypeBackend;
   country: CountryBackend | null;
+  partner_contacts: PartnerContactBackend[];
 }
 
 export interface PartnerCreateBackend extends PartnerBaseBackend {
   partner_type_id: string;
   country_id: number | null;
+  contacts: PartnerContactCreateBaseBackend[];
 }
 
 export type PartnerUpdateBackend = Partial<
@@ -92,11 +94,13 @@ export interface Partner extends PartnerBase {
   partnerType: PartnerType;
 
   country: Country | null;
+  contacts: PartnerContact[];
 }
 
 export interface PartnerCreate extends PartnerBase {
   partnerTypeId: PartnerCreateBackend["partner_type_id"];
   countryId: PartnerCreateBackend["country_id"];
+  contacts: PartnerContactCreateBase[];
 }
 
 export type PartnerUpdate = Partial<
@@ -127,7 +131,10 @@ export interface PartnerContactBackend extends PartnerContactBaseBackend {
   updated_at: string;
 }
 
-export interface PartnerContactCreateBackend extends PartnerContactBaseBackend {
+export type PartnerContactCreateBaseBackend = PartnerContactBaseBackend;
+
+export interface PartnerContactCreateBackend
+  extends PartnerContactCreateBaseBackend {
   partner_id: string;
   // Rest from base
 }
@@ -152,8 +159,12 @@ export interface PartnerContact extends PartnerContactBase {
   updatedAt: PartnerContactBackend["updated_at"];
 }
 
-export interface PartnerContactCreate extends PartnerContactBase {
+export type PartnerContactCreateBase = PartnerContactBase;
+
+export interface PartnerContactCreate extends PartnerContactCreateBase {
   partnerId: PartnerContactCreateBackend["partner_id"];
 }
+
+export type PartnerContactCreateWithoutPartnerId = PartnerContactBase;
 
 export type PartnerContactUpdate = Partial<PartnerContactCreate>;

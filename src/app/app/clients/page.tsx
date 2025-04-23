@@ -115,19 +115,19 @@ export default function ClientsPage() {
     // Only show enabled clients if showDisabled is false
     .filter((client) => showDisabled || !client.disabled);
 
-    // Sort clients by enabled/disabled (disabled at end)
-    filteredClients.sort((a, b) => {
-      // If 'a' is true and 'b' is false, 'b' should come first (1).
-      if (a.disabled && !b.disabled) {
-        return 1;
-      }
-      // If 'a' is false and 'b' is true, 'a' should come first (-1).
-      if (!a.disabled && b.disabled) {
-        return -1;
-      }
-      // If both are the same (both true or both false), their relative order doesn't matter (0).
-      return 0;
-    });
+  // Sort clients by enabled/disabled (disabled at end)
+  filteredClients.sort((a, b) => {
+    // If 'a' is true and 'b' is false, 'b' should come first (1).
+    if (a.disabled && !b.disabled) {
+      return 1;
+    }
+    // If 'a' is false and 'b' is true, 'a' should come first (-1).
+    if (!a.disabled && b.disabled) {
+      return -1;
+    }
+    // If both are the same (both true or both false), their relative order doesn't matter (0).
+    return 0;
+  });
 
   /**
    * - - - - Selected client logic (for both details and edit)
@@ -401,7 +401,10 @@ export default function ClientsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="taxId">Tax ID</Label>
+                <Label htmlFor="taxId">
+                  Tax ID{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
                 <Input
                   id="taxId"
                   value={newClientData?.taxId || ""}
@@ -412,7 +415,10 @@ export default function ClientsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">
+                  Address{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
                 <Input
                   id="address"
                   value={newClientData?.address || ""}
@@ -424,7 +430,10 @@ export default function ClientsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-2">
-                  <Label htmlFor="contactName">Contact name</Label>
+                  <Label htmlFor="contactName">
+                    Contact name{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
                   <Input
                     id="contactName"
                     value={newClientData?.contactName || ""}
@@ -435,7 +444,10 @@ export default function ClientsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contactPhone">Contact phone</Label>
+                  <Label htmlFor="contactPhone">
+                    Contact phone{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
                   <Input
                     id="contactPhone"
                     value={newClientData?.contactPhone || ""}
@@ -447,7 +459,10 @@ export default function ClientsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact email</Label>
+                <Label htmlFor="contactEmail">
+                  Contact email{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
                 <Input
                   id="contactEmail"
                   value={newClientData?.contactEmail || ""}

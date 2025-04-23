@@ -73,7 +73,7 @@ import {
   OpsFileCreate,
 } from "@/modules/ops_files/types/ops_files.types";
 import useAgents from "@/modules/providers/hooks/useAgents";
-import useCarriers from "@/modules/providers/hooks/useCarriers";
+import useCarriers from "@/modules/carriers/hooks/useCarriers";
 
 type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
   comment?: string;
