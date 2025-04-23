@@ -121,6 +121,10 @@ const serializeCarrier = (carrier: CarrierBackend): Carrier => {
     taxId: carrier?.tax_id || "",
     disabled: carrier?.disabled || false,
     createdAt: carrier?.created_at,
+    contacts:
+      carrier?.carrier_contacts?.map((carrier) =>
+        serializeCarrierContact(carrier)
+      ) || [],
   };
 };
 
@@ -176,6 +180,16 @@ export const createCarrier = async (
       tax_id: newCarrierData?.taxId,
       carrier_type_id: newCarrierData?.carrierTypeId,
       disabled: newCarrierData?.disabled || false,
+      // Initial contacts
+      initial_contacts:
+        newCarrierData?.contacts?.map((contact) => ({
+          name: contact.name,
+          email: contact?.email || null,
+          mobile: contact?.mobile || null,
+          phone: contact?.phone || null,
+          position: contact?.position || null,
+          disabled: contact?.disabled || false,
+        })) || [],
     };
 
     const url = getRoute("backend-carriers-create");
@@ -227,6 +241,15 @@ export const updateCarrier = async (
       tax_id: newCarrierData?.taxId,
       carrier_type_id: newCarrierData?.carrierTypeId,
       disabled: newCarrierData?.disabled,
+      carrier_contacts:
+        newCarrierData?.contacts?.map((contact) => ({
+          name: contact.name,
+          email: contact.email || null,
+          mobile: contact.mobile || null,
+          phone: contact.phone || null,
+          position: contact.position || null,
+          disabled: contact?.disabled || false,
+        })) || undefined,
     };
 
     const url = getRoute("backend-carriers-by-id-update", [carrierId]);

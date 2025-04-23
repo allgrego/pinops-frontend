@@ -57,13 +57,20 @@ export interface CarrierBackend extends CarrierBaseBackend {
   updated_at: string;
 
   carrier_type: CarrierTypeBackend;
+  carrier_contacts: CarrierContactBackend[];
 }
 
 export interface CarrierCreateBackend extends CarrierBaseBackend {
   carrier_type_id: string;
+  initial_contacts: CarrierContactCreateBaseBackend[];
 }
 
-export type CarrierUpdateBackend = Partial<CarrierCreateBackend>;
+export type CarrierUpdateBackend = Partial<
+  Omit<CarrierCreateBackend, "initial_contacts"> & {
+    carrier_type_id: string | null;
+    carrier_contacts: CarrierContactCreateBaseBackend[];
+  }
+>;
 
 // Internal
 export interface CarrierBase {
@@ -80,13 +87,19 @@ export interface Carrier extends CarrierBase {
   updatedAt: CarrierBackend["updated_at"];
 
   carrierType: CarrierType;
+  contacts: CarrierContact[];
 }
 
 export interface CarrierCreate extends CarrierBase {
   carrierTypeId: CarrierCreateBackend["carrier_type_id"];
+  contacts: CarrierContactCreateBase[];
 }
 
-export type CarrierUpdate = Partial<CarrierCreate>;
+export type CarrierUpdate = Partial<
+  CarrierCreate & {
+    carrierTypeId: string | null;
+  }
+>;
 
 /**
  * - - - - Carrier contacts
@@ -110,7 +123,10 @@ export interface CarrierContactBackend extends CarrierContactBaseBackend {
   updated_at: string;
 }
 
-export interface CarrierContactCreateBackend extends CarrierContactBaseBackend {
+export type CarrierContactCreateBaseBackend = CarrierContactBaseBackend;
+
+export interface CarrierContactCreateBackend
+  extends CarrierContactCreateBaseBackend {
   carrier_id: string;
   // Rest from base
 }
@@ -135,7 +151,9 @@ export interface CarrierContact extends CarrierContactBase {
   updatedAt: CarrierContactBackend["updated_at"];
 }
 
-export interface CarrierContactCreate extends CarrierContactBase {
+export type CarrierContactCreateBase = CarrierContactBase;
+
+export interface CarrierContactCreate extends CarrierContactCreateBase {
   carrierId: CarrierContactCreateBackend["carrier_id"];
 }
 
