@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { FC, useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -49,58 +49,96 @@ import {
 } from "@/core/components/ui/select";
 import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/core/components/ui/tooltip";
 import { numberOrNull } from "@/core/lib/numbers";
+import { getRoute } from "@/core/lib/routes";
 import { cn } from "@/core/lib/utils";
+import { useAuth } from "@/modules/auth/lib/auth";
+import useCarriers from "@/modules/carriers/hooks/useCarriers";
 import useClients from "@/modules/clients/hooks/useClients";
+import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
+import useCountries from "@/modules/geodata/hooks/useCountries";
 import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
-  allCargoUnitTypes,
   allOperationTypes,
   allVolumeUnits,
   allWeightUnits,
   createOpsFile,
-  getCargoUnitTypesName,
   getOpsTypeName,
   getVolumeUnitName,
   getWeightUnitName,
   VolumeUnits,
   WeightUnits,
 } from "@/modules/ops_files/lib/ops_files";
+import { OperationStatusIds } from "@/modules/ops_files/setup/ops_file_statuses";
 import {
-  OperationStatuses,
   OperationTypes,
   OpsFile,
   OpsFileCreate,
 } from "@/modules/ops_files/types/ops_files.types";
-import useAgents from "@/modules/providers/hooks/useAgents";
-import useCarriers from "@/modules/carriers/hooks/useCarriers";
-import { getRoute } from "@/core/lib/routes";
+import usePartners from "@/modules/partners/hooks/usePartners";
 
-type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
+type NewOperationFormData = Omit<OpsFileCreate, "partnersIds" | "comment"> & {
   comment?: string;
 };
 
 const CUSTOM_UNIT_KEY = "other";
 const NONE_SELECT_OPTION = "none";
-const DEFAULT_OPS_STATUS = OperationStatuses.OPENED;
+const DEFAULT_OPS_STATUS = OperationStatusIds.OPENED; // Opened by default
 const DEFAULT_OPS_TYPE = OperationTypes.MARITIME;
 
 export default function NewOperationPage() {
   const router = useRouter();
 
+  /**
+   * - - - - Current user data
+   */
+  const { user } = useAuth();
+
+  const currentUserId = user?.userId;
+
+  /**
+   * - - - -Clients fetching
+   */
   const clientsData = useClients();
   const { clients } = clientsData;
 
+  /**
+   * - - - -Carriers fetching
+   */
   const carriersData = useCarriers();
   const { carriers } = carriersData;
 
-  const agentsData = useAgents();
-  const { agents } = agentsData;
+  /**
+   * - - - -Partners fetching
+   */
+  const partnersData = usePartners();
+  const { partners } = partnersData;
+
+  /**
+   * - - - Countries fetching
+   */
+  const {
+    countries,
+    // query: partnerTypesQuery,
+    isLoading: countriesIsLoading,
+    isError: countriesIsError,
+    // error: countriesError,
+  } = useCountries({
+    queryProps: {
+      refetchOnWindowFocus: false, // Not necessary to refetch on window focus
+    },
+  });
 
   const [customWeightUnit, setCustomWeightUnit] = useState("");
   const [customVolumeUnit, setCustomVolumeUnit] = useState("");
-  const [customUnitsType, setCustomUnitsType] = useState("");
-  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  // const [customUnitsType, setCustomUnitsType] = useState("");
+  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
 
   const formData = useForm<NewOperationFormData>({
     defaultValues: {
@@ -110,30 +148,29 @@ export default function NewOperationPage() {
       // Default units
       grossWeightUnit: WeightUnits.KG,
       volumeUnit: VolumeUnits.M3,
+      packaging: [],
 
       // Others
       carrierId: null,
     },
   });
 
-  const [unitsType, volumeUnit, grossWeightUnit, operationType, incoterm] =
-    formData.watch([
-      "unitsType",
-      "volumeUnit",
-      "grossWeightUnit",
-      "opType",
-      "incoterm",
-    ]);
+  const [volumeUnit, grossWeightUnit, operationType, incoterm] = formData.watch(
+    ["volumeUnit", "grossWeightUnit", "opType", "incoterm"]
+  );
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleSelectChange = (
+    name: keyof NewOperationFormData,
+    value: string | number | null
+  ) => {
     formData.setValue(name as keyof NewOperationFormData, value);
   };
 
-  const toggleAgent = (agentId: string) => {
-    setSelectedAgents((prev) =>
-      prev.includes(agentId)
-        ? prev.filter((id) => id !== agentId)
-        : [...prev, agentId]
+  const togglePartner = (partnerId: string) => {
+    setSelectedPartners((prev) =>
+      prev.includes(partnerId)
+        ? prev.filter((id) => id !== partnerId)
+        : [...prev, partnerId]
     );
   };
 
@@ -142,10 +179,7 @@ export default function NewOperationPage() {
    */
   const createOperationMutation = useMutation<OpsFile, Error, OpsFileCreate>({
     mutationKey: ["CreateOperation"],
-    mutationFn: async (newOpsFileData) => {
-      console.log("DATA", newOpsFileData);
-      return await createOpsFile(newOpsFileData);
-    },
+    mutationFn: async (newOpsFileData) => await createOpsFile(newOpsFileData),
     onError(error) {
       toast(`Unable to create operation. ${error}`);
     },
@@ -158,7 +192,7 @@ export default function NewOperationPage() {
       // Determine the final values
       const finalGrossWeightValue = numberOrNull(data?.grossWeightValue);
       const finalVolumeValue = numberOrNull(data?.volumeUnit);
-      const finalUnitValue = numberOrNull(data?.unitsQuantity);
+      // const finalUnitValue = numberOrNull(data?.unitsQuantity);
       // Determine the final units
       const finalWeightUnit =
         data.grossWeightUnit === CUSTOM_UNIT_KEY
@@ -172,12 +206,12 @@ export default function NewOperationPage() {
           : data.volumeUnit === NONE_SELECT_OPTION
           ? null
           : data.volumeUnit;
-      const finalUnitsType =
-        data.unitsType === CUSTOM_UNIT_KEY
-          ? customUnitsType
-          : data.unitsType === NONE_SELECT_OPTION
-          ? null
-          : data.unitsType;
+      // const finalUnitsType =
+      //   data.unitsType === CUSTOM_UNIT_KEY
+      //     ? customUnitsType
+      //     : data.unitsType === NONE_SELECT_OPTION
+      //     ? null
+      //     : data.unitsType;
 
       const finalIncoterm =
         data.incoterm === NONE_SELECT_OPTION ? null : data.incoterm;
@@ -189,17 +223,16 @@ export default function NewOperationPage() {
       const newOperation = await createOperationMutation.mutateAsync({
         // Location
         originLocation: data?.originLocation?.trim() || null,
-        originCountry: data.originCountry?.trim() || null,
+        originCountryId: data?.originCountryId || null,
         destinationLocation: data?.destinationLocation || null,
-        destinationCountry: data?.destinationCountry || null,
+        destinationCountryId: data?.destinationCountryId || null,
         // Schedules
         estimatedTimeDeparture: data?.estimatedTimeDeparture || null,
         actualTimeDeparture: data?.actualTimeDeparture || null,
         estimatedTimeArrival: data?.estimatedTimeArrival || null,
         actualTimeArrival: data?.actualTimeArrival || null,
-        cargoDescription: data?.cargoDescription,
-        unitsQuantity: finalUnitValue,
-        unitsType: finalUnitsType || null, // The unit type could be regardless of missing value
+        // Cargo properties
+        cargoDescription: data?.cargoDescription?.trim(),
         grossWeightValue: finalGrossWeightValue,
         grossWeightUnit:
           finalGrossWeightValue === null
@@ -219,13 +252,16 @@ export default function NewOperationPage() {
         clientId: data?.clientId,
         statusId: data?.statusId,
         carrierId: finalCarrier || null,
-        agentsId: selectedAgents || [],
+        partnersIds: selectedPartners || [],
         comment: !data?.comment
           ? null
           : {
-              author: null,
               content: data.comment,
             },
+        creatorUserId: currentUserId || null,
+        // TODO Add right data when fields are available
+        assigneeUserId: null,
+        packaging: [],
       });
 
       toast("The operation has been created successfully.");
@@ -254,7 +290,7 @@ export default function NewOperationPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href={`/app/operations`}>Operations</Link>
+                <Link href={getRoute("operations")}>Operations</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -272,7 +308,7 @@ export default function NewOperationPage() {
               <CardTitle>Basic Information</CardTitle>
 
               <CardDescription className="text-xs">
-                Not required data could be edited later
+                Optional data could be added later
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -280,44 +316,94 @@ export default function NewOperationPage() {
                 <Label htmlFor="clientId">
                   Client <span className="text-red-500">*</span>
                 </Label>
+
                 <Controller
                   control={formData.control}
                   name="clientId"
                   render={({ field }) => {
+                    const selectedClient = clients.find(
+                      (c) => c.clientId === field.value
+                    );
+
                     return (
-                      <>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) =>
-                            handleSelectChange(field.name, value)
-                          }
-                          disabled={
-                            clientsData.isLoading || clientsData.isError
-                          }
-                        >
-                          <SelectTrigger
-                            id={field.name}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between"
                             disabled={
                               clientsData.isLoading || clientsData.isError
                             }
                           >
-                            <SelectValue placeholder="Select client" />
-                          </SelectTrigger>
+                            {!!field.value
+                              ? selectedClient?.name || field.value
+                              : "Select client..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command
+                            filter={(value, search) => {
+                              const client = clients.find(
+                                (c) => c.clientId === value
+                              );
 
-                          <SelectContent>
-                            {!clients.length
-                              ? null
-                              : clients.map((client) => (
-                                  <SelectItem
-                                    value={client.clientId}
+                              if (!client) return 0;
+
+                              const clientIsSearched = [
+                                client?.name,
+                                client?.clientId,
+                                client?.contactName,
+                                client?.contactEmail,
+                              ].some((value) =>
+                                String(value || "")
+                                  .normalize("NFD")
+                                  .replace(/[\u0300-\u036f]/g, "")
+                                  .toLowerCase()
+                                  .includes(
+                                    search
+                                      .normalize("NFD")
+                                      .replace(/[\u0300-\u036f]/g, "")
+                                      .toLowerCase()
+                                  )
+                              );
+
+                              if (!clientIsSearched) return 0;
+
+                              return 1;
+                            }}
+                          >
+                            <CommandInput placeholder="Search client..." />
+                            <CommandList>
+                              <CommandEmpty>No clients found.</CommandEmpty>
+                              <CommandGroup>
+                                {clients.map((client) => (
+                                  <CommandItem
                                     key={client.clientId}
+                                    value={client.clientId}
+                                    onSelect={(value) =>
+                                      handleSelectChange(field.name, value)
+                                    }
                                   >
-                                    {client.name}
-                                  </SelectItem>
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === client.clientId
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex gap-4 justify-between w-full font-semibold">
+                                      {client.name}{" "}
+                                    </div>
+                                  </CommandItem>
                                 ))}
-                          </SelectContent>
-                        </Select>
-                      </>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     );
                   }}
                 />
@@ -355,7 +441,9 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="modality">Modality</Label>
+                  <Label htmlFor="modality">
+                    Modality <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="modality"
                     {...formData.register("modality")}
@@ -366,7 +454,8 @@ export default function NewOperationPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="cargo_description">
-                  Cargo description <span className="text-red-500">*</span>
+                  Commodities / Cargo description{" "}
+                  <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
                   id="cargo_description"
@@ -378,7 +467,9 @@ export default function NewOperationPage() {
               <Separator className="my-4" />
 
               <div className="space-y-2">
-                <Label>International agents</Label>
+                <Label>
+                  Partners <OptionalFieldTag />
+                </Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -386,35 +477,74 @@ export default function NewOperationPage() {
                       role="combobox"
                       className="w-full justify-between"
                     >
-                      {selectedAgents.length > 0
-                        ? `${selectedAgents.length} agent${
-                            selectedAgents.length > 1 ? "s" : ""
+                      {selectedPartners.length > 0
+                        ? `${selectedPartners.length} partner${
+                            selectedPartners.length > 1 ? "s" : ""
                           } selected`
-                        : "Select agents..."}
+                        : "Select partners..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search agents..." />
+                    <Command
+                      filter={(value, search) => {
+                        const partner = partners.find(
+                          (p) => p.partnerId === value
+                        );
+
+                        if (!partner) return 0;
+
+                        const partnerIsSearched = [
+                          partner?.name,
+                          partner?.partnerId,
+                          partner?.partnerType?.name,
+                          partner?.taxId,
+                          partner?.country?.iso2Code,
+                        ].some((value) =>
+                          String(value || "")
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .toLowerCase()
+                            .includes(
+                              search
+                                .normalize("NFD")
+                                .replace(/[\u0300-\u036f]/g, "")
+                                .toLowerCase()
+                            )
+                        );
+
+                        if (!partnerIsSearched) return 0;
+
+                        return 1;
+                      }}
+                    >
+                      <CommandInput placeholder="Search partners..." />
                       <CommandList>
-                        <CommandEmpty>No agent found.</CommandEmpty>
+                        <CommandEmpty>No partners found.</CommandEmpty>
                         <CommandGroup>
-                          {agents.map((agent) => (
+                          {partners.map((partner) => (
                             <CommandItem
-                              key={agent.agentId}
-                              value={agent.agentId}
-                              onSelect={() => toggleAgent(agent.agentId)}
+                              key={partner.partnerId}
+                              value={partner.partnerId}
+                              onSelect={() => togglePartner(partner.partnerId)}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedAgents.includes(agent.agentId)
+                                  selectedPartners.includes(partner.partnerId)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              {agent.name}
+                              <div className="flex gap-4 justify-between w-full font-semibold">
+                                {partner.name}{" "}
+                                <Badge
+                                  variant={"outline"}
+                                  className={`text-xs`}
+                                >
+                                  {partner?.partnerType?.name || "-"}
+                                </Badge>
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -422,23 +552,25 @@ export default function NewOperationPage() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {selectedAgents.length > 0 && (
+                {selectedPartners.length > 0 && (
                   <div className="mt-2">
                     <div className="flex flex-wrap gap-2">
-                      {selectedAgents.map((agentId) => {
-                        const agent = agents.find((a) => a.agentId === agentId);
-                        return agent ? (
+                      {selectedPartners.map((partnerId) => {
+                        const partner = partners.find(
+                          (a) => a.partnerId === partnerId
+                        );
+                        return partner ? (
                           <Badge
-                            key={agent.agentId}
+                            key={partner.partnerId}
                             variant="secondary"
                             className="flex items-center gap-1 cursor-default"
                           >
-                            {agent.name}
+                            {partner.name}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-4 w-4 p-0 hover:bg-transparent cursor-pointer"
-                              onClick={() => toggleAgent(agent.agentId)}
+                              onClick={() => togglePartner(partner.partnerId)}
                             >
                               <X className="h-3 w-3" />
                               <span className="sr-only">Remove</span>
@@ -452,48 +584,105 @@ export default function NewOperationPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="carrierId">Carrier</Label>
+                <Label htmlFor="carrierId">
+                  Carrier <OptionalFieldTag />
+                </Label>
                 <Controller
                   control={formData.control}
                   name="carrierId"
                   render={({ field }) => {
+                    const selectedCarrier = carriers.find(
+                      (c) => c.carrierId === field.value
+                    );
+
                     return (
-                      <>
-                        <Select
-                          value={field.value || undefined}
-                          onValueChange={(value) =>
-                            handleSelectChange(field.name, value)
-                          }
-                          disabled={
-                            carriersData.isLoading || carriersData.isError
-                          }
-                        >
-                          <SelectTrigger
-                            id={field.name}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between"
                             disabled={
                               carriersData.isLoading || carriersData.isError
                             }
                           >
-                            <SelectValue placeholder="Select carrier" />
-                          </SelectTrigger>
+                            {!!field.value
+                              ? selectedCarrier?.name || field.value
+                              : "Select a carrier..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command
+                            filter={(value, search) => {
+                              const carrier = carriers.find(
+                                (c) => c.carrierId === value
+                              );
 
-                          <SelectContent>
-                            <SelectItem value={NONE_SELECT_OPTION}>
-                              None
-                            </SelectItem>
-                            {!carriers.length
-                              ? null
-                              : carriers.map((carrier) => (
-                                  <SelectItem
-                                    value={carrier.carrierId}
+                              if (!carrier) return 0;
+
+                              const carrierIsSearched = [
+                                carrier?.name,
+                                carrier?.carrierId,
+                                carrier?.carrierType?.name,
+                                carrier?.taxId,
+                              ].some((value) =>
+                                String(value || "")
+                                  .normalize("NFD")
+                                  .replace(/[\u0300-\u036f]/g, "")
+                                  .toLowerCase()
+                                  .includes(
+                                    search
+                                      .normalize("NFD")
+                                      .replace(/[\u0300-\u036f]/g, "")
+                                      .toLowerCase()
+                                  )
+                              );
+
+                              if (!carrierIsSearched) return 0;
+
+                              return 1;
+                            }}
+                          >
+                            <CommandInput placeholder="Search carrier..." />
+                            <CommandList>
+                              <CommandEmpty>No carriers found.</CommandEmpty>
+                              <CommandGroup>
+                                {carriers.map((carrier) => (
+                                  <CommandItem
                                     key={carrier.carrierId}
+                                    value={carrier.carrierId}
+                                    onSelect={(value) =>
+                                      handleSelectChange(
+                                        field.name,
+                                        value === field.value ? "" : value
+                                      )
+                                    }
                                   >
-                                    {carrier.name}
-                                  </SelectItem>
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === carrier.carrierId
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex gap-4 justify-between w-full font-semibold">
+                                      {carrier.name}{" "}
+                                      <Badge
+                                        variant={"outline"}
+                                        className={`text-xs`}
+                                      >
+                                        {carrier?.carrierType?.name || "-"}
+                                      </Badge>
+                                    </div>
+                                  </CommandItem>
                                 ))}
-                          </SelectContent>
-                        </Select>
-                      </>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     );
                   }}
                 />
@@ -505,67 +694,9 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="units_quantity">Units quantity</Label>
-                  <Input
-                    id="units_quantity"
-                    type="number"
-                    {...formData.register("unitsQuantity")}
-                    placeholder="12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unitsType">Units type</Label>
-                  <Controller
-                    control={formData.control}
-                    name="unitsType"
-                    render={({ field }) => {
-                      return (
-                        <>
-                          <Select
-                            value={field.value || undefined}
-                            onValueChange={(value) =>
-                              handleSelectChange(field.name, value)
-                            }
-                          >
-                            <SelectTrigger id={field.name}>
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-
-                            <SelectContent>
-                              <SelectItem value={NONE_SELECT_OPTION}>
-                                None
-                              </SelectItem>
-                              {!allCargoUnitTypes.length
-                                ? null
-                                : allCargoUnitTypes.map((unitType) => (
-                                    <SelectItem value={unitType} key={unitType}>
-                                      {getCargoUnitTypesName(unitType)}
-                                    </SelectItem>
-                                  ))}
-                              <SelectItem value={CUSTOM_UNIT_KEY}>
-                                Other
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </>
-                      );
-                    }}
-                  />
-                  {/* Custom unit input */}
-                  {unitsType === CUSTOM_UNIT_KEY && (
-                    <Input
-                      className="mt-2"
-                      placeholder="Enter unit type"
-                      value={customUnitsType}
-                      onChange={(e) => setCustomUnitsType(e.target.value)}
-                    />
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gross_weight_value">Gross weight</Label>
+                  <Label htmlFor="gross_weight_value">
+                    Gross weight <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="gross_weight_value"
                     {...formData.register("grossWeightValue")}
@@ -575,7 +706,9 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gross_weight_unit">Weight unit</Label>
+                  <Label htmlFor="gross_weight_unit" className="invisible">
+                    Weight unit
+                  </Label>
 
                   <Controller
                     control={formData.control}
@@ -627,7 +760,9 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="volume_value">Volume</Label>
+                  <Label htmlFor="volume_value">
+                    Volume <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="volume_value"
                     {...formData.register("volumeValue")}
@@ -637,7 +772,9 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="volumeUnit">Volume unit</Label>
+                  <Label htmlFor="volumeUnit" className="invisible">
+                    Volume unit
+                  </Label>
                   <Controller
                     control={formData.control}
                     name="volumeUnit"
@@ -699,7 +836,9 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="origin_location">Origin location</Label>
+                  <Label htmlFor="origin_location">
+                    Origin location <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="origin_location"
                     {...formData.register("originLocation")}
@@ -707,11 +846,26 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="origin_country">Origin country</Label>
-                  <Input
-                    id="origin_country"
-                    {...formData.register("originCountry")}
-                    placeholder="CN"
+                  <Label htmlFor="origin_country">
+                    Origin country <OptionalFieldTag />
+                  </Label>
+                  <Controller
+                    control={formData.control}
+                    name="originCountryId"
+                    render={({ field }) => {
+                      return (
+                        <CountrySelector
+                          withNone // None option set the value to null
+                          countries={countries}
+                          value={field.value}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={countriesIsError}
+                          isLoading={countriesIsLoading}
+                        />
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -719,7 +873,7 @@ export default function NewOperationPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="destination_location">
-                    Destination location
+                    Destination location <OptionalFieldTag />
                   </Label>
                   <Input
                     id="destination_location"
@@ -729,12 +883,25 @@ export default function NewOperationPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="destination_country">
-                    Destination country
+                    Destination country <OptionalFieldTag />
                   </Label>
-                  <Input
-                    id="destination_country"
-                    {...formData.register("destinationCountry")}
-                    placeholder="VE"
+                  <Controller
+                    control={formData.control}
+                    name="destinationCountryId"
+                    render={({ field }) => {
+                      return (
+                        <CountrySelector
+                          withNone // None option set the value to null
+                          countries={countries}
+                          value={field.value}
+                          onValueChange={(value) =>
+                            handleSelectChange(field.name, value)
+                          }
+                          disabled={countriesIsError}
+                          isLoading={countriesIsLoading}
+                        />
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -743,7 +910,17 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimated_time_departure">ETD</Label>
+                  <Label htmlFor="estimated_time_departure">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>ETD</TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Estimated time of departure</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="estimated_time_departure"
                     type="date"
@@ -751,7 +928,17 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="actual_time_departure">ATD</Label>
+                  <Label htmlFor="actual_time_departure">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>ATD</TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Actual time of departure</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="actual_time_departure"
                     type="date"
@@ -762,7 +949,17 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="estimated_time_arrival">ETA</Label>
+                  <Label htmlFor="estimated_time_arrival">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>ETA</TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Estimated time of arrival</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="estimated_time_arrival"
                     type="date"
@@ -770,7 +967,17 @@ export default function NewOperationPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="actual_time_arrival">ATA</Label>
+                  <Label htmlFor="actual_time_arrival">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>ATA</TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Actual time of arrival</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <OptionalFieldTag />
+                  </Label>
                   <Input
                     id="actual_time_arrival"
                     type="date"
@@ -788,7 +995,8 @@ export default function NewOperationPage() {
                       ? "MBL"
                       : operationType === OperationTypes.AIR
                       ? "MAWB"
-                      : "Master doc"}
+                      : "Master document number"}{" "}
+                    <OptionalFieldTag />
                   </Label>
                   <Input
                     id="master_transport_doc"
@@ -801,7 +1009,8 @@ export default function NewOperationPage() {
                       ? "HBL"
                       : operationType === OperationTypes.AIR
                       ? "HAWB"
-                      : "House doc"}
+                      : "House document number"}{" "}
+                    <OptionalFieldTag />
                   </Label>
                   <Input
                     id="house_transport_doc"
@@ -812,7 +1021,9 @@ export default function NewOperationPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="incoterm">Incoterm</Label>
+                  <Label htmlFor="incoterm">
+                    Incoterm <OptionalFieldTag />
+                  </Label>
                   <Select
                     value={incoterm || undefined}
                     onValueChange={(value) =>
@@ -837,14 +1048,18 @@ export default function NewOperationPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="voyage">Voyage</Label>
+                <Label htmlFor="voyage">
+                  Voyage <OptionalFieldTag />
+                </Label>
                 <Input id="voyage" {...formData.register("voyage")} />
               </div>
 
               <Separator className="my-4" />
 
               <div className="space-y-2">
-                <Label htmlFor="comment">Observations</Label>
+                <Label htmlFor="comment">
+                  Observations <OptionalFieldTag />
+                </Label>
                 <Textarea id="comment" {...formData.register("comment")} />
               </div>
             </CardContent>
@@ -873,3 +1088,7 @@ export default function NewOperationPage() {
     </div>
   );
 }
+
+const OptionalFieldTag: FC = () => {
+  return <span className="text-xs text-muted-foreground">(optional)</span>;
+};
