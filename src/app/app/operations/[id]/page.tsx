@@ -37,7 +37,7 @@ import { Textarea } from "@/core/components/ui/textarea";
 import { formatDate } from "@/core/lib/dates";
 import { shortUUID } from "@/core/lib/misc";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 import OpsStatusBadge from "@/modules/ops_files/components/OpsStatusBadge/OpsStatusBadge";
 import useOpsFile from "@/modules/ops_files/hooks/useOpsFile";
 import {
@@ -54,6 +54,7 @@ import {
   OpsFileComment,
   OpsfileCommentCreate,
 } from "@/modules/ops_files/types/ops_files.types";
+import { getRoute } from "@/core/lib/routes";
 
 const DEFAULT_USER_NAME = "System user";
 const DEFAULT_MISSING_DATA_TAG = "- -";
@@ -219,7 +220,7 @@ export default function OperationDetailPage() {
         </div>
         <div className="flex space-x-2">
           <Button variant="outline" asChild disabled>
-            <Link href={`/app/operations/${operationId}/edit`}>
+            <Link href={getRoute("operations-by-id-edit", [operationId])}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Link>
@@ -534,7 +535,7 @@ export default function OperationDetailPage() {
                         <Button
                           variant="outline"
                           className="cursor-pointer"
-                          disabled={userRole !== UserRoles.ADMIN}
+                          disabled={userRole !== UserRolesIds.ADMIN}
                           onClick={() => {
                             handleDeleteComment(comment?.commentId || "");
                           }}

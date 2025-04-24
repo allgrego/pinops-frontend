@@ -51,7 +51,7 @@ import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
 import { numberOrNull } from "@/core/lib/numbers";
 import { cn } from "@/core/lib/utils";
-import useClients from "@/modules/hooks/useClients";
+import useClients from "@/modules/clients/hooks/useClients";
 import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
   allCargoUnitTypes,
@@ -74,6 +74,7 @@ import {
 } from "@/modules/ops_files/types/ops_files.types";
 import useAgents from "@/modules/providers/hooks/useAgents";
 import useCarriers from "@/modules/carriers/hooks/useCarriers";
+import { getRoute } from "@/core/lib/routes";
 
 type NewOperationFormData = Omit<OpsFileCreate, "agentsId"> & {
   comment?: string;
@@ -229,7 +230,9 @@ export default function NewOperationPage() {
 
       toast("The operation has been created successfully.");
 
-      router.push(`/app/operations/${newOperation.opsFileId}`);
+      router.push(
+        getRoute("operations-by-id-details", [newOperation.opsFileId])
+      );
     } catch (error) {
       toast(`Failed to create the operation. ${error}`);
     }

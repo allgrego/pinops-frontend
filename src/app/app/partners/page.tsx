@@ -70,7 +70,7 @@ import {
 } from "@/core/components/ui/tabs";
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
 import useCountries from "@/modules/geodata/hooks/useCountries";
 import usePartnerTypes from "@/modules/partners/hooks/usePartnerTypes";
@@ -95,7 +95,7 @@ export default function PartnersPage() {
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role.role_id;
+  const userRole = user?.role.roleId;
 
   /**
    * - - - Partner types fetching
@@ -1354,7 +1354,8 @@ export default function PartnersPage() {
             <Button
               variant="outline"
               disabled={
-                updatePartnerMutation.isPending || userRole !== UserRoles.ADMIN
+                updatePartnerMutation.isPending ||
+                userRole !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditPartnerOpen(false);
@@ -1580,7 +1581,7 @@ const PartnersTable: FC<PartnersTableProps> = ({
                           onDelete(partner);
                         }}
                         disabled={
-                          !!userRoleId && userRoleId !== UserRoles.ADMIN
+                          !!userRoleId && userRoleId !== UserRolesIds.ADMIN
                         }
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

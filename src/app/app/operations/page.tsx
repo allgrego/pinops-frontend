@@ -31,7 +31,11 @@ import {
   TooltipTrigger,
 } from "@/core/components/ui/tooltip";
 import useDialog from "@/core/hooks/useDialog";
+import { formatDate } from "@/core/lib/dates";
 import { shortUUID } from "@/core/lib/misc";
+import { getRoute } from "@/core/lib/routes";
+import { useAuth } from "@/modules/auth/lib/auth";
+import { UserRolesIds as UserRoles } from "@/modules/auth/setup/auth";
 import OpsStatusBadge from "@/modules/ops_files/components/OpsStatusBadge/OpsStatusBadge";
 import {
   deleteOpsFile,
@@ -40,9 +44,6 @@ import {
   getOpsTypeName,
 } from "@/modules/ops_files/lib/ops_files";
 import { OpsFile } from "@/modules/ops_files/types/ops_files.types";
-import { formatDate } from "@/core/lib/dates";
-import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
 
 const DEFAULT_MISSING_DATA_TAG = "- -";
 
@@ -186,7 +187,7 @@ export default function OperationsPage() {
   };
 
   const openOperation = (opId: string) => {
-    const url = `/app/operations/${opId}`;
+    const url = getRoute("operations-by-id-details", [opId]);
     router.push(url);
   };
 
@@ -198,7 +199,7 @@ export default function OperationsPage() {
           <p className="text-muted-foreground">Manage your operations</p>
         </div>
         <Button asChild>
-          <Link href="/app/operations/new">
+          <Link href={getRoute("operations-new")}>
             <Plus className="mr-2 h-4 w-4" />
             New Operation
           </Link>
@@ -269,7 +270,11 @@ export default function OperationsPage() {
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
-                          <Link href={`/app/operations/${operation.opsFileId}`}>
+                          <Link
+                            href={getRoute("operations-by-id-details", [
+                              operation.opsFileId,
+                            ])}
+                          >
                             {getOpsTypeIcon(operation?.opType || "")}
                           </Link>
                         </TooltipTrigger>
@@ -293,7 +298,7 @@ export default function OperationsPage() {
                   <TableCell>
                     {[
                       operation?.originLocation || "",
-                      operation?.originCountry || "",
+                      operation?.originCountry?.iso2Code || "",
                     ]
                       // Remove empty ones
                       .filter((l) => l.trim())
@@ -302,7 +307,7 @@ export default function OperationsPage() {
                   <TableCell>
                     {[
                       operation?.destinationLocation || "",
-                      operation?.destinationCountry || "",
+                      operation?.destinationCountry?.iso2Code || "",
                     ]
                       // Remove empty ones
                       .filter((l) => l.trim())
@@ -328,14 +333,20 @@ export default function OperationsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/app/operations/${operation.opsFileId}`}>
+                          <Link
+                            href={getRoute("operations-by-id-details", [
+                              operation.opsFileId,
+                            ])}
+                          >
                             <Eye className="mr-2 h-4 w-4" />
                             Details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link
-                            href={`/app/operations/${operation.opsFileId}/edit`}
+                            href={getRoute("operations-by-id-edit", [
+                              operation.opsFileId,
+                            ])}
                           >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
@@ -347,7 +358,7 @@ export default function OperationsPage() {
                             setCurrentOpsFile(operation);
                             openDeleteConfirmationDialog();
                           }}
-                          disabled={userRole !== UserRoles.ADMIN}
+                          disabled={userRole?.roleId !== UserRoles.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete

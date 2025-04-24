@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { CustomQueryProps } from "@/core/types/query";
-import { getAllClients } from "../clients/lib/clients";
-import { Client } from "../clients/types/clients";
+import { getAllClients } from "../lib/clients";
+import { Client } from "../types/clients";
 
 type Data = Client[];
 

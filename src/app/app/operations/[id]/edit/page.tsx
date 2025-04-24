@@ -63,7 +63,7 @@ import useDialog from "@/core/hooks/useDialog";
 import { shortUUID } from "@/core/lib/misc";
 import { cn } from "@/core/lib/utils";
 import { useAuth } from "@/modules/auth/lib/auth";
-import useClients from "@/modules/hooks/useClients";
+import useClients from "@/modules/clients/hooks/useClients";
 import useOpsFile from "@/modules/ops_files/hooks/useOpsFile";
 import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
@@ -92,6 +92,7 @@ import {
 import useAgents from "@/modules/providers/hooks/useAgents";
 import useCarriers from "@/modules/providers/hooks/useCarriers";
 import { numberOrNull } from "@/core/lib/numbers";
+import { getRoute } from "@/core/lib/routes";
 
 type EditOperationFormData = Omit<OpsFileUpdate, "agentsId">;
 
@@ -342,7 +343,7 @@ export default function EditOperationPage() {
 
         await reloadOperation();
 
-        await router.push(`/app/operations/${operationId}`);
+        await router.push(getRoute("operations-by-id-details", [operationId]));
       } else {
         toast("Failed to update the operation.");
       }
@@ -421,7 +422,7 @@ export default function EditOperationPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size="icon" asChild>
-            <Link href={`/app/operations/${params.id}`}>
+            <Link href={getRoute("operations-by-id-details", [params.id])}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -489,7 +490,9 @@ export default function EditOperationPage() {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href={`/app/operations/${operationId}`}>
+                <Link
+                  href={getRoute("operations-by-id-details", [operationId])}
+                >
                   {shortUUID(operationId)}
                 </Link>
               </BreadcrumbLink>
@@ -1147,7 +1150,9 @@ export default function EditOperationPage() {
             asChild
             disabled={editOperationMutation.isPending}
           >
-            <Link href={`/app/operations/${operationId}`}>Cancel</Link>
+            <Link href={getRoute("operations-by-id-details", [operationId])}>
+              Cancel
+            </Link>
           </Button>
           <Button
             type="submit"

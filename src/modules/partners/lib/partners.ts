@@ -24,7 +24,7 @@ import {
  *
  * @return {PartnerType}
  */
-const serializePartnerType = (partnerType: PartnerTypeBackend): PartnerType => {
+export const serializePartnerType = (partnerType: PartnerTypeBackend): PartnerType => {
   return {
     partnerTypeId: partnerType?.partner_type_id,
     name: partnerType?.name,
@@ -116,7 +116,7 @@ export const getPartnerTypeById = async (
  *
  * @return {PartnerContact}
  */
-const serializePartnerContact = (
+export const serializePartnerContact = (
   partnerContact: PartnerContactBackend
 ): PartnerContact => {
   return {
@@ -366,7 +366,7 @@ export const deletePartnerContact = async (
  *
  * @return {Partner}
  */
-const serializePartner = (partner: PartnerBackend): Partner => {
+export const serializePartner = (partner: PartnerBackend): Partner => {
   return {
     partnerId: partner?.partner_id || "",
     name: partner?.name || "",

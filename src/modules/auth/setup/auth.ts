@@ -15,7 +15,7 @@ if (!DEFAULT_PASSWORD) {
  *  - - - User roles options
  */
 // IMPORTANT: Must be consistent with DB users roles
-export const UserRoles = {
+export const UserRolesIds = {
   ADMIN: "admin",
   OPS_MANAGER: "ops_manager",
   TRAFFIC_OPERATOR: "traffic_operator",

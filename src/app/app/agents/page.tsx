@@ -45,7 +45,7 @@ import {
   AgentCreate,
   AgentUpdate,
 } from "@/modules/providers/types/agents";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 
 export default function AgentsPage() {
   /**
@@ -468,7 +468,7 @@ export default function AgentsPage() {
                             setCurrentAgent(agent);
                             openDeleteConfirmationDialog();
                           }}
-                          disabled={userRole !== UserRoles.ADMIN}
+                          disabled={userRole?.roleId !== UserRolesIds.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -621,7 +621,8 @@ export default function AgentsPage() {
             <Button
               variant="destructive"
               disabled={
-                updateAgentMutation.isPending || userRole !== UserRoles.ADMIN
+                updateAgentMutation.isPending ||
+                userRole?.roleId !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditAgentOpen(false);
