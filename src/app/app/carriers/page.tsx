@@ -69,7 +69,7 @@ import {
 } from "@/core/components/ui/tabs";
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 import useCarrierTypes from "@/modules/carriers/hooks/useCarrierTypes";
 import useCarriers from "@/modules/carriers/hooks/useCarriers";
 import {
@@ -77,13 +77,13 @@ import {
   deleteCarrier,
   updateCarrier,
 } from "@/modules/carriers/lib/carriers";
+import { CarrierTypesIds } from "@/modules/carriers/setup/carriers";
 import {
   Carrier,
   CarrierContactCreateBase,
   CarrierCreate,
   CarrierUpdate,
 } from "@/modules/carriers/types/carriers.types";
-import { CarrierTypesIds } from "@/modules/carriers/setup/carriers";
 
 const ALL_TAB_OPTION = "all";
 
@@ -92,7 +92,7 @@ export default function CarriersPage() {
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role.role_id;
+  const userRole = user?.role;
 
   /**
    * - - - Carrier types fetching
@@ -775,7 +775,7 @@ export default function CarriersPage() {
               isLoading={isLoadingCarriersData}
               isError={isErrorCarriersData}
               error={carrierTypesError || carriersError}
-              userRoleId={userRole}
+              userRoleId={userRole?.roleId || ""}
               onOpenDetails={(carrier) => openDetailsDialog(carrier)}
               onDelete={(carrier) => {
                 setCurrentCarrier(carrier);
@@ -798,7 +798,7 @@ export default function CarriersPage() {
                 isLoading={isLoadingCarriersData}
                 isError={isErrorCarriersData}
                 error={carrierTypesError || carriersError}
-                userRoleId={userRole}
+                userRoleId={userRole?.roleId || ""}
                 onOpenDetails={(carrier) => openDetailsDialog(carrier)}
                 onDelete={(carrier) => {
                   setCurrentCarrier(carrier);
@@ -1182,7 +1182,8 @@ export default function CarriersPage() {
             <Button
               variant="outline"
               disabled={
-                updateCarrierMutation.isPending || userRole !== UserRoles.ADMIN
+                updateCarrierMutation.isPending ||
+                userRole?.roleId !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditCarrierOpen(false);
@@ -1399,7 +1400,7 @@ const CarriersTable: FC<CarriersTableProps> = ({
                           onDelete(carrier);
                         }}
                         disabled={
-                          !!userRoleId && userRoleId !== UserRoles.ADMIN
+                          !!userRoleId && userRoleId !== UserRolesIds.ADMIN
                         }
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

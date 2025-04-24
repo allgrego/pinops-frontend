@@ -784,43 +784,6 @@ export default function PartnersPage() {
                     ))}
                   </div>
                 )}
-
-                {/* Contact */}
-                {/* <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="contactName">Contact name</Label>
-                  <Input
-                    id="contactName"
-                    value={newPartnerData?.contactName || ""}
-                    onChange={(e) =>
-                      updateNewPartnerData({ contactName: e.target.value })
-                    }
-                    placeholder="Teresa Torres"
-                  />
-                  </div>
-                <div className="space-y-2">
-                <Label htmlFor="contactPhone">Contact phone</Label>
-                <Input
-                    id="contactPhone"
-                    value={newPartnerData?.contactPhone || ""}
-                    onChange={(e) =>
-                      updateNewPartnerData({ contactPhone: e.target.value })
-                    }
-                    placeholder="+12 456 78 90"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact email</Label>
-                <Input
-                  id="contactEmail"
-                  value={newPartnerData?.contactEmail || ""}
-                  onChange={(e) =>
-                  updateNewPartnerData({ contactEmail: e.target.value })
-                  }
-                  placeholder="agent@email.com"
-                />
-              </div> */}
               </div>
             </ScrollArea>
             <DialogFooter>
