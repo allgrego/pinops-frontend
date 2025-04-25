@@ -73,6 +73,7 @@ import { useAuth } from "@/modules/auth/lib/auth";
 import { UserRolesIds } from "@/modules/auth/setup/auth";
 import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
 import useCountries from "@/modules/geodata/hooks/useCountries";
+import PartnerTypeBadge from "@/modules/partners/components/PartnerTypeBadge/PartnerTypeBadge";
 import usePartnerTypes from "@/modules/partners/hooks/usePartnerTypes";
 import usePartners from "@/modules/partners/hooks/usePartners";
 import {
@@ -80,7 +81,6 @@ import {
   deletePartner,
   updatePartner,
 } from "@/modules/partners/lib/partners";
-import { PartnerTypesIds } from "@/modules/partners/setup/partners";
 import {
   Partner,
   PartnerContactCreateWithoutPartnerId,
@@ -1389,27 +1389,6 @@ const PartnersTable: FC<PartnersTableProps> = ({
   onSetDisable,
   userRoleId,
 }) => {
-  /**
-   * Get the custom styles for each partner type ID (default styles if not included)
-   *
-   * @param {string} typeId
-   *
-   * @returns {string}
-   */
-  const getPartnerTypeStyles = (type: string) => {
-    const styles: Partial<Record<PartnerTypesIds, string>> = {
-      [PartnerTypesIds.LOGISTICS_OPERATOR]: "bg-blue-100 text-blue-800",
-      [PartnerTypesIds.PORT_AGENT]: "bg-purple-100 text-purple-800",
-      [PartnerTypesIds.INSURER]: "bg-yellow-100 text-yellow-800",
-      [PartnerTypesIds.CUSTOMS_BROKER]: "bg-green-100 text-green-800",
-      // TODO add the rest
-    };
-
-    const defaultStyle = "bg-gray-100 text-gray-800";
-
-    return styles?.[type as PartnerTypesIds] || defaultStyle;
-  };
-
   return (
     <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
       <Table className="w-full overflow-x-auto">
@@ -1472,13 +1451,11 @@ const PartnersTable: FC<PartnersTableProps> = ({
                   className="font-medium text-xs"
                   onClick={() => onOpenDetails(partner)}
                 >
-                  <Badge
-                    className={getPartnerTypeStyles(
-                      partner?.partnerType.partnerTypeId
-                    )}
+                  <PartnerTypeBadge
+                    partnerTypeId={partner?.partnerType.partnerTypeId}
                   >
                     {partner?.partnerType?.name || "-"}
-                  </Badge>
+                  </PartnerTypeBadge>
                 </TableCell>
                 <TableCell className="" onClick={() => onOpenDetails(partner)}>
                   <div className="text-sm">

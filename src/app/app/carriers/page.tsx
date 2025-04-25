@@ -70,6 +70,7 @@ import {
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
 import { UserRolesIds } from "@/modules/auth/setup/auth";
+import CarrierTypeBadge from "@/modules/carriers/components/CarrierTypeBadge/CarrierTypeBadge";
 import useCarrierTypes from "@/modules/carriers/hooks/useCarrierTypes";
 import useCarriers from "@/modules/carriers/hooks/useCarriers";
 import {
@@ -77,7 +78,6 @@ import {
   deleteCarrier,
   updateCarrier,
 } from "@/modules/carriers/lib/carriers";
-import { CarrierTypesIds } from "@/modules/carriers/setup/carriers";
 import {
   Carrier,
   CarrierContactCreateBase,
@@ -1254,28 +1254,6 @@ const CarriersTable: FC<CarriersTableProps> = ({
   onSetDisable,
   userRoleId,
 }) => {
-  /**
-   * Get the custom styles for each carrier type ID (default styles if not included)
-   *
-   * @param {string} typeId
-   *
-   * @returns {string}
-   */
-  const getCarrierTypeStyles = (type: string) => {
-    const styles: Partial<Record<CarrierTypesIds, string>> = {
-      [CarrierTypesIds.AIRLINE]: "bg-blue-100 text-blue-800",
-      [CarrierTypesIds.SHIPPING_LINE]: "bg-purple-100 text-purple-800",
-      [CarrierTypesIds.ROAD_FREIGHT_INTERNATIONAL]:
-        "bg-yellow-100 text-yellow-800",
-      [CarrierTypesIds.COURIER]: "bg-green-100 text-green-800",
-      // TODO add the rest
-    };
-
-    const defaultStyle = "bg-gray-100 text-gray-800";
-
-    return styles?.[type as CarrierTypesIds] || defaultStyle;
-  };
-
   return (
     <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
       <Table className="w-full overflow-x-auto">
@@ -1337,13 +1315,11 @@ const CarriersTable: FC<CarriersTableProps> = ({
                   className="font-medium text-xs"
                   onClick={() => onOpenDetails(carrier)}
                 >
-                  <Badge
-                    className={getCarrierTypeStyles(
-                      carrier?.carrierType.carrierTypeId
-                    )}
+                  <CarrierTypeBadge
+                    carrierTypeId={carrier?.carrierType.carrierTypeId}
                   >
                     {carrier?.carrierType?.name || "-"}
-                  </Badge>
+                  </CarrierTypeBadge>
                 </TableCell>
 
                 <TableCell className="" onClick={() => onOpenDetails(carrier)}>

@@ -179,7 +179,13 @@ export default function NewOperationPage() {
    */
   const createOperationMutation = useMutation<OpsFile, Error, OpsFileCreate>({
     mutationKey: ["CreateOperation"],
-    mutationFn: async (newOpsFileData) => await createOpsFile(newOpsFileData),
+    mutationFn: async (newOpsFileData) => {
+      try {
+        return await createOpsFile(newOpsFileData);
+      } catch (error) {
+        return Promise.reject(`${error}`);
+      }
+    },
     onError(error) {
       toast(`Unable to create operation. ${error}`);
     },
@@ -278,7 +284,7 @@ export default function NewOperationPage() {
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/app/operations">
+          <Link href={getRoute("operations")}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
