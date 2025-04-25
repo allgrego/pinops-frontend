@@ -92,7 +92,8 @@ export type RouteAlias =
   | "backend-ops-files-comments-by-id-delete"
   | "backend-ops-files-status-get-all"
   | "backend-ops-files-status-by-id-get"
-  | "backend-ops-files-general-stats";
+  | "backend-ops-files-general-stats"
+  | "backend-users-get-all";
 
 /**
  * NextJS and other routes
@@ -186,4 +187,6 @@ export const routes: Record<RouteAlias, string> = {
   "backend-ops-files-comments-by-id-delete": `${BACKEND_BASE_URL}/ops/comments/:comment_id/`,
   // Ops files misc
   "backend-ops-files-general-stats": `${BACKEND_BASE_URL}/ops/general/statistics`,
+  // Users
+  "backend-users-get-all": `${BACKEND_BASE_URL}/users`,
 };

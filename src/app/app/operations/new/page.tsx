@@ -82,6 +82,7 @@ import {
   OpsFileCreate,
 } from "@/modules/ops_files/types/ops_files.types";
 import usePartners from "@/modules/partners/hooks/usePartners";
+import useUsers from "@/modules/users/hooks/useUsers";
 
 type NewOperationFormData = Omit<OpsFileCreate, "partnersIds" | "comment"> & {
   comment?: string;
@@ -107,6 +108,12 @@ export default function NewOperationPage() {
    */
   const clientsData = useClients();
   const { clients } = clientsData;
+
+  /**
+   * - - - -Users fetching
+   */
+  const usersData = useUsers();
+  const { users } = usersData;
 
   /**
    * - - - -Carriers fetching
@@ -266,7 +273,7 @@ export default function NewOperationPage() {
             },
         creatorUserId: currentUserId || null,
         // TODO Add right data when fields are available
-        assigneeUserId: null,
+        assigneeUserId: data?.assigneeUserId || null,
         packaging: [],
       });
 
@@ -467,6 +474,123 @@ export default function NewOperationPage() {
                   id="cargo_description"
                   {...formData.register("cargoDescription", { required: true })}
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignee_id">
+                  Assignee <OptionalFieldTag />
+                </Label>
+                <div className="text-xs font-light text-muted-foreground">
+                  The user who is responsible of this operation
+                </div>
+
+                <Controller
+                  control={formData.control}
+                  name="assigneeUserId"
+                  render={({ field }) => {
+                    const selectedUser = users.find(
+                      (u) => u.userId === field.value
+                    );
+
+                    // Copy users list to sort them
+                    const usersList = [...(users || [])];
+
+                    usersList.sort((a, b) => {
+                      // If a is current user, it comes first
+                      if (a.userId === currentUserId) return -1;
+
+                      // If b is current user, it comes first
+                      if (b.userId === currentUserId) return 1;
+
+                      // Otherwise sort by name
+                      return a.name.localeCompare(b.name);
+                    });
+
+                    return (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between"
+                            disabled={usersData.isError}
+                            loading={usersData.isLoading}
+                          >
+                            {!!field.value
+                              ? selectedUser?.name || field.value
+                              : "Select user..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0">
+                          <Command
+                            filter={(value, search) => {
+                              const user = usersList.find(
+                                (c) => c.userId === value
+                              );
+
+                              if (!user) return 0;
+
+                              const userIsSearched = [
+                                user?.name,
+                                user?.email,
+                                user?.userId,
+                              ].some((value) =>
+                                String(value || "")
+                                  .normalize("NFD")
+                                  .replace(/[\u0300-\u036f]/g, "")
+                                  .toLowerCase()
+                                  .includes(
+                                    search
+                                      .normalize("NFD")
+                                      .replace(/[\u0300-\u036f]/g, "")
+                                      .toLowerCase()
+                                  )
+                              );
+
+                              if (!userIsSearched) return 0;
+
+                              return 1;
+                            }}
+                          >
+                            <CommandInput placeholder="Search users..." />
+                            <CommandList>
+                              <CommandEmpty>No users found.</CommandEmpty>
+                              <CommandGroup>
+                                {usersList.map((user) => (
+                                  <CommandItem
+                                    key={user.userId}
+                                    value={user.userId}
+                                    onSelect={(value) =>
+                                      handleSelectChange(field.name, value)
+                                    }
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === user.userId
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex gap-2 justify-start w-full items-center">
+                                      {user.name}{" "}
+                                      {user.userId === currentUserId && (
+                                        <span className="text-muted-foreground text-sm">
+                                          (you)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  }}
                 />
               </div>
 
