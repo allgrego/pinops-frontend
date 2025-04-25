@@ -222,7 +222,7 @@ export interface OpsFileCreateBackend extends OpsFileBaseBackend {
 
   comment?: Partial<OpsFileCommentBaseBackend> | null; // Only one comment could be added when creating
 
-  packaging: OpsfileCargoPackageCreateWithoutOpIdBackend[]; // Could be empty list
+  packaging_data: OpsfileCargoPackageCreateWithoutOpIdBackend[]; // Could be empty list
   // All rest of properties are inherited and optional
 }
 

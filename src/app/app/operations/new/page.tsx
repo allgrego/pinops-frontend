@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronsUpDown, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FC, useState } from "react";
@@ -65,10 +65,13 @@ import CountrySelector from "@/modules/geodata/components/CountrySelector/Countr
 import useCountries from "@/modules/geodata/hooks/useCountries";
 import { allIncoterms } from "@/modules/ops_files/lib/incoterms";
 import {
+  allCargoUnitTypes,
   allOperationTypes,
   allVolumeUnits,
   allWeightUnits,
+  CargoUnitTypes,
   createOpsFile,
+  getCargoUnitTypesName,
   getOpsTypeName,
   getVolumeUnitName,
   getWeightUnitName,
@@ -79,6 +82,7 @@ import { OperationStatusIds } from "@/modules/ops_files/setup/ops_file_statuses"
 import {
   OperationTypes,
   OpsFile,
+  OpsfileCargoPackageCreateWithoutOpId,
   OpsFileCreate,
 } from "@/modules/ops_files/types/ops_files.types";
 import usePartners from "@/modules/partners/hooks/usePartners";
@@ -92,6 +96,11 @@ const CUSTOM_UNIT_KEY = "other";
 const NONE_SELECT_OPTION = "none";
 const DEFAULT_OPS_STATUS = OperationStatusIds.OPENED; // Opened by default
 const DEFAULT_OPS_TYPE = OperationTypes.MARITIME;
+
+const defaultPackage: OpsfileCargoPackageCreateWithoutOpId = {
+  quantity: null,
+  units: CargoUnitTypes.UNIT,
+};
 
 export default function NewOperationPage() {
   const router = useRouter();
@@ -127,6 +136,8 @@ export default function NewOperationPage() {
   const partnersData = usePartners();
   const { partners } = partnersData;
 
+  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
+
   /**
    * - - - Countries fetching
    */
@@ -142,10 +153,12 @@ export default function NewOperationPage() {
     },
   });
 
+  /**
+   * - - - Form logic and related
+   */
+
   const [customWeightUnit, setCustomWeightUnit] = useState("");
   const [customVolumeUnit, setCustomVolumeUnit] = useState("");
-  // const [customUnitsType, setCustomUnitsType] = useState("");
-  const [selectedPartners, setSelectedPartners] = useState<string[]>([]);
 
   const formData = useForm<NewOperationFormData>({
     defaultValues: {
@@ -155,16 +168,21 @@ export default function NewOperationPage() {
       // Default units
       grossWeightUnit: WeightUnits.KG,
       volumeUnit: VolumeUnits.M3,
-      packaging: [],
+      packaging: [defaultPackage], // Initially one empty row
 
       // Others
       carrierId: null,
     },
   });
 
-  const [volumeUnit, grossWeightUnit, operationType, incoterm] = formData.watch(
-    ["volumeUnit", "grossWeightUnit", "opType", "incoterm"]
-  );
+  const [volumeUnit, grossWeightUnit, operationType, incoterm, packagingData] =
+    formData.watch([
+      "volumeUnit",
+      "grossWeightUnit",
+      "opType",
+      "incoterm",
+      "packaging",
+    ]);
 
   const handleSelectChange = (
     name: keyof NewOperationFormData,
@@ -179,6 +197,40 @@ export default function NewOperationPage() {
         ? prev.filter((id) => id !== partnerId)
         : [...prev, partnerId]
     );
+  };
+
+  /**
+   * - - - -Packaging logic
+   */
+
+  /**
+   *  Add an empty package to the form
+   */
+  const addPackage = () => {
+    formData.setValue("packaging", [...(packagingData || []), defaultPackage]);
+  };
+
+  /**
+   *  Update the data of a provided index package on the form
+   */
+  const updatePackage = (
+    index: number,
+    field: keyof OpsfileCargoPackageCreateWithoutOpId,
+    value: string | number | null
+  ) => {
+    const updatedPackaging = [...packagingData];
+    updatedPackaging[index] = { ...updatedPackaging[index], [field]: value };
+    formData.setValue("packaging", updatedPackaging);
+  };
+
+  /**
+   * Remove a package from the form
+   */
+  const removePackage = (index: number) => {
+    const updatedPackaging = [...packagingData];
+    updatedPackaging.splice(index, 1);
+
+    formData.setValue("packaging", updatedPackaging);
   };
 
   /***
@@ -219,12 +271,20 @@ export default function NewOperationPage() {
           : data.volumeUnit === NONE_SELECT_OPTION
           ? null
           : data.volumeUnit;
-      // const finalUnitsType =
-      //   data.unitsType === CUSTOM_UNIT_KEY
-      //     ? customUnitsType
-      //     : data.unitsType === NONE_SELECT_OPTION
-      //     ? null
-      //     : data.unitsType;
+
+      const finalPackaging: OpsfileCargoPackageCreateWithoutOpId[] =
+        data.packaging
+          // Include only those which has valid quantity unless it is not quantifiable (e.g. loose cargo)
+          .filter((pack) => {
+            const isNonQuantifiableUnit = (
+              [CargoUnitTypes.LOOSE_CARGO] as string[]
+            ).includes(pack.units);
+            return isNonQuantifiableUnit || !!numberOrNull(pack.quantity);
+          })
+          .map((pack) => ({
+            quantity: numberOrNull(pack.quantity),
+            units: pack?.units?.trim() || "",
+          }));
 
       const finalIncoterm =
         data.incoterm === NONE_SELECT_OPTION ? null : data.incoterm;
@@ -272,9 +332,8 @@ export default function NewOperationPage() {
               content: data.comment,
             },
         creatorUserId: currentUserId || null,
-        // TODO Add right data when fields are available
         assigneeUserId: data?.assigneeUserId || null,
-        packaging: [],
+        packaging: finalPackaging || [],
       });
 
       toast("The operation has been created successfully.");
@@ -953,6 +1012,77 @@ export default function NewOperationPage() {
                     }}
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="items-center">
+                  Packaging <OptionalFieldTag />
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addPackage}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add packaging
+                </Button>
+              </div>
+              <div className="flex flex-col gap-y-2">
+                {!packagingData.length ? (
+                  <span className="text-xs font-light text-muted-foreground">
+                    No cargo packaging info
+                  </span>
+                ) : (
+                  packagingData.map((packaging, index) => (
+                    // Row
+                    <div key={index} className="grid grid-cols-2 gap-x-4">
+                      <div className="space-y-2">
+                        <Input
+                          value={packaging.quantity || ""}
+                          onChange={(e) => {
+                            updatePackage(index, "quantity", e.target.value);
+                          }}
+                          inputMode="decimal"
+                          type="number"
+                          step="0.001"
+                          placeholder="2.123"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-x-2 ">
+                        <Select
+                          value={packaging.units || ""}
+                          onValueChange={(value) => {
+                            updatePackage(index, "units", value);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select unit" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {!allCargoUnitTypes.length
+                              ? null
+                              : allCargoUnitTypes.map((unit) => (
+                                  <SelectItem value={unit} key={unit}>
+                                    {getCargoUnitTypesName(unit)}
+                                  </SelectItem>
+                                ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removePackage(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

@@ -438,7 +438,7 @@ export const createOpsFile = async (
       gross_weight_unit: newOpsFileData?.grossWeightUnit,
       volume_value: newOpsFileData?.volumeValue,
       volume_unit: newOpsFileData?.volumeUnit,
-      packaging:
+      packaging_data:
         newOpsFileData?.packaging?.map((packaging) => ({
           units: packaging.units,
           quantity: numberOrNull(packaging?.quantity),
@@ -524,7 +524,7 @@ export const updateOpsFile = async (
       gross_weight_unit: newOpsFileData?.grossWeightUnit,
       volume_value: newOpsFileData?.volumeValue,
       volume_unit: newOpsFileData?.volumeUnit,
-      packaging: newOpsFileData?.packaging?.map?.((packaging) => ({
+      packaging_data: newOpsFileData?.packaging?.map?.((packaging) => ({
         units: packaging.units,
         quantity: numberOrNull(packaging?.quantity),
       })),
