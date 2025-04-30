@@ -1,15 +1,27 @@
-import { HelpCircle, Plane, Ship, Train, Truck } from "lucide-react";
+import {
+  CircleHelp,
+  HelpCircle,
+  Plane,
+  Ship,
+  Train,
+  Truck,
+} from "lucide-react";
 import { JSX } from "react";
 
-import { BACKEND_BASE_URL } from "@/core/setup/routes";
+import { numberOrNull } from "@/core/lib/numbers";
+import { getRoute } from "@/core/lib/routes";
+import { serializeCarrier } from "@/modules/carriers/lib/carriers";
+import { Carrier } from "@/modules/carriers/types/carriers.types";
+import { serializeClient } from "@/modules/clients/lib/clients";
 import type { Client } from "@/modules/clients/types/clients";
+import { serializeCountry } from "@/modules/geodata/lib/countries";
 import {
-  OperationStatus,
-  OperationStatuses,
   OperationType,
   OperationTypes,
   OpsFile,
   OpsFileBackend,
+  OpsFileCargoPackage,
+  OpsFileCargoPackageBackend,
   OpsFileComment,
   OpsFileCommentBackend,
   OpsfileCommentCreate,
@@ -19,9 +31,11 @@ import {
   OpsFileUpdate,
   OpsFileUpdateBackend,
   OpsStatus,
+  OpsStatusBackend,
 } from "@/modules/ops_files/types/ops_files.types";
-import { Agent } from "@/modules/providers/types/agents";
-import { Carrier } from "@/modules/providers/types/carriers.types";
+import { serializePartner } from "@/modules/partners/lib/partners";
+import { Partner } from "@/modules/partners/types/partners.types";
+import { serializeUser } from "@/modules/users/lib/users";
 
 /**
  *  - - - Units types options
@@ -74,13 +88,213 @@ export type VolumeUnit = (typeof VolumeUnits)[VolumeUnitKey];
 
 export const allOperationTypes = Object.values(OperationTypes);
 
-export const allOperationStatuses = Object.values(OperationStatuses);
-
 export const allWeightUnits = Object.values(WeightUnits);
 
 export const allCargoUnitTypes = Object.values(CargoUnitTypes);
 
 export const allVolumeUnits = Object.values(VolumeUnits);
+
+/**
+ * - - - - -  Ops file statuses helpers
+ */
+
+/**
+ * Transform an ops file status from backend schema into internal schema
+ *
+ * @param {OpsStatusBackend} status
+ *
+ * @returns {OpsStatus}
+ */
+export const serializeOpsFileStatus = (status: OpsStatusBackend): OpsStatus => {
+  const serializedStatus: OpsStatus = {
+    statusId: status.status_id,
+    statusName: status.status_name,
+  };
+
+  return serializedStatus;
+};
+
+/**
+ * Get all ops files statuses
+ *
+ * @return {OpsStatus[]}
+ */
+export const getAllOpsFileStatuses = async (): Promise<OpsStatus[]> => {
+  try {
+    const url = getRoute("backend-ops-files-status-get-all");
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: OpsStatusBackend[] | undefined = await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    // Transform into internal schema
+    const statuses: OpsStatus[] = jsonResponse.map((status) =>
+      serializeOpsFileStatus(status)
+    );
+
+    return statuses;
+  } catch (error) {
+    console.error("Failure getting all ops files statuses", error);
+    throw error;
+  }
+};
+
+/**
+ * - - - - -  Ops file Comments helpers
+ */
+
+/**
+ * Transform an ops file comment from backend schema into internal schema
+ *
+ * @param {OpsFileCommentBackend} comment
+ *
+ * @returns {OpsFileComment}
+ */
+export const serializeOpsFileComment = (
+  comment: OpsFileCommentBackend
+): OpsFileComment => {
+  const serializedComment: OpsFileComment = {
+    commentId: comment.comment_id,
+    opsFileId: comment.op_id,
+    author: !comment?.author ? null : serializeUser(comment.author),
+    content: comment.content,
+    createdAt: comment.created_at,
+  };
+
+  return serializedComment;
+};
+
+/**
+ * Create a new ops file comment
+ *
+ * @param {OpsfileCommentCreate} newCommentData
+ *
+ * @return {OpsFileComment}
+ */
+export const createOpsFileComment = async (
+  newCommentData: OpsfileCommentCreate
+): Promise<OpsFileComment> => {
+  try {
+    if (!newCommentData) throw new Error("Data not found");
+
+    if (!newCommentData?.content) throw new Error("Comment content not found");
+
+    const opsFileId = newCommentData?.opsFileid;
+
+    if (!opsFileId) throw new Error("Operation ID not found");
+
+    // Transform payload into backend schema
+    const backendPayload: OpsfileCommentCreateBackend = {
+      op_id: opsFileId,
+      author_user_id: newCommentData.authorUserId,
+      content: newCommentData?.content,
+    };
+
+    const url = getRoute("backend-ops-files-comments-create");
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(backendPayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: OpsFileCommentBackend | undefined =
+      await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    // Transform response into internal schema
+    const newComment: OpsFileComment = serializeOpsFileComment(jsonResponse);
+
+    return newComment;
+  } catch (error) {
+    console.error("Failure creating an ops file comment", error);
+    return Promise.reject(`${error}`);
+  }
+};
+
+/**
+ * Delete an ops file comment
+ *
+ * @param {string} commentId
+ *
+ * @return {{ ok: boolean }}
+ */
+export const deleteOpsFileComment = async (
+  commentId: string
+): Promise<boolean> => {
+  try {
+    if (!commentId) throw new Error("Comment ID not found");
+
+    const url = getRoute("backend-ops-files-comments-by-id-delete", [
+      commentId,
+    ]);
+
+    const response = await fetch(url, {
+      method: "DELETE",
+    });
+
+    // TODO validate 404 response
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: { ok: boolean } | undefined = await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    return jsonResponse?.ok || false;
+  } catch (error) {
+    console.error("Failure deleting an ops file comment", error);
+    return Promise.reject(`${error}`);
+  }
+};
+
+/**
+ * - - - - Ops file packaging helpers
+ */
+
+/**
+ * Transform an ops file cargo package from backend schema into internal schema
+ *
+ * @param {OpsFileCargoPackageBackend} packaging
+ *
+ * @returns {OpsFileCargoPackage}
+ */
+export const serializeOpsFileCargoPackage = (
+  packaging: OpsFileCargoPackageBackend
+): OpsFileCargoPackage => {
+  const serializedPackaging: OpsFileCargoPackage = {
+    packageId: packaging.package_id,
+    opsFileId: packaging.op_id,
+    quantity: numberOrNull(packaging?.quantity),
+    units: packaging?.units,
+    createdAt: packaging?.created_at,
+  };
+
+  return serializedPackaging;
+};
+
+/**
+ * - - - - Ops files helpers
+ */
 
 /**
  * Transform an ops file from backend schema into internal schema
@@ -96,56 +310,26 @@ export const serializeOpsFile = (opFile: OpsFileBackend): OpsFile => {
       statusName: opFile?.status?.status_name,
     };
 
-    const serializedClient: Client = {
-      clientId: opFile?.client?.client_id,
-      name: opFile?.client?.name,
-      contactEmail: opFile?.client?.contact_email,
-      contactName: opFile?.client?.contact_name,
-      contactPhone: opFile?.client?.contact_phone,
-      taxId: opFile?.client?.tax_id,
-      createdAt: opFile?.client?.created_at,
-    };
+    const serializedClient: Client = serializeClient(opFile.client);
 
-    const serlalizedAgents: Agent[] =
-      // Iterate on each agent to transform into internal schema
-      opFile?.agents?.map((agentBackend) => {
-        const internalAgent: Agent = {
-          agentId: agentBackend?.agent_id,
-          name: agentBackend?.name,
-          contactName: agentBackend?.contact_name,
-          contactEmail: agentBackend?.contact_email,
-          contactPhone: agentBackend?.contact_phone,
-          createdAt: agentBackend?.created_at,
-        };
-
-        return internalAgent;
-      }) || []; // Empty array by default
+    const serializedPartners: Partner[] =
+      // Iterate on each partner to transform into internal schema
+      opFile?.partners?.map((partner) => serializePartner(partner)) || []; // Empty array by default
 
     const serializedCarrier: Carrier | null = !opFile?.carrier
       ? null
-      : {
-          carrierId: opFile.carrier?.carrier_id,
-          name: opFile.carrier?.name,
-          type: opFile.carrier?.type,
-          contactEmail: opFile.carrier?.contact_email,
-          contactName: opFile.carrier?.contact_name,
-          contactPhone: opFile.carrier?.contact_phone,
-          createdAt: opFile.carrier?.created_at,
-        };
+      : serializeCarrier(opFile.carrier);
 
     const serializedComments: OpsFileComment[] =
       // Iterate on each comment to transform into internal schema
-      opFile?.comments?.map((commentBackend) => {
-        const comment: OpsFileComment = {
-          commentId: commentBackend?.comment_id,
-          author: commentBackend?.author,
-          content: commentBackend?.content,
-          opsFileId: commentBackend?.op_id,
-          createdAt: commentBackend?.created_at,
-        };
+      opFile?.comments?.map((commentBackend) =>
+        serializeOpsFileComment(commentBackend)
+      ) || [];
 
-        return comment;
-      }) || [];
+    const serializedPackages: OpsFileCargoPackage[] =
+      opFile?.packaging?.map((packaging) =>
+        serializeOpsFileCargoPackage(packaging)
+      ) || [];
 
     const serializedOpsFile: OpsFile = {
       opsFileId: opFile?.op_id,
@@ -153,15 +337,19 @@ export const serializeOpsFile = (opFile: OpsFileBackend): OpsFile => {
       status: serializedStatus,
       client: serializedClient,
 
-      // Providers
-      agents: serlalizedAgents,
+      // Partners and carrier
+      partners: serializedPartners,
       carrier: serializedCarrier,
 
       // Locations
       originLocation: opFile?.origin_location,
-      originCountry: opFile?.origin_country,
+      originCountry: !opFile?.origin_country
+        ? null
+        : serializeCountry(opFile.origin_country),
       destinationLocation: opFile?.destination_location,
-      destinationCountry: opFile?.destination_country,
+      destinationCountry: !opFile?.destination_country
+        ? null
+        : serializeCountry(opFile.destination_country),
       // Schedules
       estimatedTimeDeparture: opFile?.estimated_time_departure,
       actualTimeDeparture: opFile?.actual_time_departure,
@@ -169,18 +357,20 @@ export const serializeOpsFile = (opFile: OpsFileBackend): OpsFile => {
       actualTimeArrival: opFile?.actual_time_arrival,
       // Cargo properties
       cargoDescription: opFile?.cargo_description,
-      unitsQuantity: opFile?.units_quantity,
-      unitsType: opFile?.units_type,
       grossWeightValue: opFile?.gross_weight_value,
       grossWeightUnit: opFile?.gross_weight_unit,
       volumeValue: opFile?.volume_value,
       volumeUnit: opFile?.volume_unit,
+      packaging: serializedPackages,
       // Op details
       masterTransportDoc: opFile?.master_transport_doc,
       houseTransportDoc: opFile?.house_transport_doc,
       incoterm: opFile?.incoterm,
       modality: opFile?.modality,
       voyage: opFile?.voyage,
+      // Users
+      assignee: !opFile?.assignee ? null : serializeUser(opFile.assignee),
+      creator: !opFile?.creator ? null : serializeUser(opFile.creator),
 
       comments: serializedComments,
       createdAt: opFile?.created_at,
@@ -201,7 +391,7 @@ export const serializeOpsFile = (opFile: OpsFileBackend): OpsFile => {
  */
 export const getAllOpsFiles = async (): Promise<OpsFile[]> => {
   try {
-    const url = `${BACKEND_BASE_URL}/ops`;
+    const url = getRoute("backend-ops-files-get-all");
 
     const response = await fetch(url);
 
@@ -234,7 +424,9 @@ export const getAllOpsFiles = async (): Promise<OpsFile[]> => {
  */
 export const getOpsFile = async (id: string): Promise<OpsFile | null> => {
   try {
-    const url = `${BACKEND_BASE_URL}/ops/${id}`;
+    if (!id) throw new Error("Ops file ID not found");
+
+    const url = getRoute("backend-ops-files-by-id-get", [id]);
 
     const response = await fetch(url);
 
@@ -280,14 +472,15 @@ export const createOpsFile = async (
       client_id: newOpsFileData?.clientId,
       status_id: newOpsFileData?.statusId,
       op_type: newOpsFileData?.opType,
-      // Providers
+      // Carrier and partners
       carrier_id: newOpsFileData?.carrierId,
-      agents_id: newOpsFileData?.agentsId || [],
+      partners_id: newOpsFileData?.partnersIds || [],
+
       // Locations
       origin_location: newOpsFileData?.originLocation,
-      origin_country: newOpsFileData?.originCountry,
+      origin_country_id: newOpsFileData?.originCountryId,
       destination_location: newOpsFileData?.destinationLocation,
-      destination_country: newOpsFileData?.destinationCountry,
+      destination_country_id: newOpsFileData?.destinationCountryId,
       // Schedules
       estimated_time_departure: newOpsFileData?.estimatedTimeDeparture,
       actual_time_departure: newOpsFileData?.actualTimeDeparture,
@@ -295,22 +488,28 @@ export const createOpsFile = async (
       actual_time_arrival: newOpsFileData?.actualTimeArrival,
       // Cargo properties
       cargo_description: newOpsFileData?.cargoDescription,
-      units_quantity: newOpsFileData?.unitsQuantity,
-      units_type: newOpsFileData?.unitsType,
       gross_weight_value: newOpsFileData?.grossWeightValue,
       gross_weight_unit: newOpsFileData?.grossWeightUnit,
       volume_value: newOpsFileData?.volumeValue,
       volume_unit: newOpsFileData?.volumeUnit,
+      packaging_data:
+        newOpsFileData?.packaging?.map((packaging) => ({
+          units: packaging.units,
+          quantity: numberOrNull(packaging?.quantity),
+        })) || [],
       // Op details
       master_transport_doc: newOpsFileData?.masterTransportDoc,
       house_transport_doc: newOpsFileData?.houseTransportDoc,
       incoterm: newOpsFileData?.incoterm,
       modality: newOpsFileData?.modality,
       voyage: newOpsFileData?.voyage,
+      // Others
       comment: newOpsFileData?.comment,
+      assignee_user_id: newOpsFileData.assigneeUserId,
+      creator_user_id: newOpsFileData.creatorUserId,
     };
 
-    const url = `${BACKEND_BASE_URL}/ops`;
+    const url = getRoute("backend-ops-files-create");
 
     const response = await fetch(url, {
       method: "POST",
@@ -351,6 +550,8 @@ export const updateOpsFile = async (
   newOpsFileData: OpsFileUpdate
 ): Promise<OpsFile> => {
   try {
+    if (!opsFileId) throw new Error("Ops file ID not found");
+
     if (!newOpsFileData) throw new Error("Data not found");
 
     // Transform into backend schema
@@ -358,14 +559,14 @@ export const updateOpsFile = async (
       client_id: newOpsFileData?.clientId,
       status_id: newOpsFileData?.statusId,
       op_type: newOpsFileData?.opType,
-      // Providers
+      // Carrier and partners
       carrier_id: newOpsFileData?.carrierId,
-      agents_id: newOpsFileData?.agentsId,
+      partners_id: newOpsFileData?.partnersIds || [],
       // Locations
       origin_location: newOpsFileData?.originLocation,
-      origin_country: newOpsFileData?.originCountry,
+      origin_country_id: newOpsFileData?.originCountryId,
       destination_location: newOpsFileData?.destinationLocation,
-      destination_country: newOpsFileData?.destinationCountry,
+      destination_country_id: newOpsFileData?.destinationCountryId,
       // Schedules
       estimated_time_departure: newOpsFileData?.estimatedTimeDeparture,
       actual_time_departure: newOpsFileData?.actualTimeDeparture,
@@ -373,21 +574,26 @@ export const updateOpsFile = async (
       actual_time_arrival: newOpsFileData?.actualTimeArrival,
       // Cargo properties
       cargo_description: newOpsFileData?.cargoDescription,
-      units_quantity: newOpsFileData?.unitsQuantity,
-      units_type: newOpsFileData?.unitsType,
       gross_weight_value: newOpsFileData?.grossWeightValue,
       gross_weight_unit: newOpsFileData?.grossWeightUnit,
       volume_value: newOpsFileData?.volumeValue,
       volume_unit: newOpsFileData?.volumeUnit,
+      packaging_data: newOpsFileData?.packaging?.map?.((packaging) => ({
+        units: packaging.units,
+        quantity: numberOrNull(packaging?.quantity),
+      })),
       // Op details
       master_transport_doc: newOpsFileData?.masterTransportDoc,
       house_transport_doc: newOpsFileData?.houseTransportDoc,
       incoterm: newOpsFileData?.incoterm,
       modality: newOpsFileData?.modality,
       voyage: newOpsFileData?.voyage,
+      // Others
+      assignee_user_id: newOpsFileData?.assigneeUserId,
+      creator_user_id: newOpsFileData?.creatorUserId,
     };
 
-    const url = `${BACKEND_BASE_URL}/ops/${opsFileId}`;
+    const url = getRoute("backend-ops-files-by-id-update", [opsFileId]);
 
     const response = await fetch(url, {
       method: "PATCH",
@@ -426,7 +632,7 @@ export const deleteOpsFile = async (opsFileId: string): Promise<boolean> => {
   try {
     if (!opsFileId) throw new Error("Ops file ID not found");
 
-    const url = `${BACKEND_BASE_URL}/ops/${opsFileId}`;
+    const url = getRoute("backend-ops-files-by-id-delete", [opsFileId]);
 
     const response = await fetch(url, {
       method: "DELETE",
@@ -452,105 +658,6 @@ export const deleteOpsFile = async (opsFileId: string): Promise<boolean> => {
 };
 
 /**
- * Create a new ops file comment
- *
- * @param {OpsFileCreate} newClientData
- *
- * @return {Client}
- */
-export const createOpsFileComment = async (
-  newCommentData: OpsfileCommentCreate
-): Promise<OpsFileComment> => {
-  try {
-    if (!newCommentData) throw new Error("Data not found");
-
-    if (!newCommentData?.content) throw new Error("Comment content not found");
-
-    const opsFileId = newCommentData?.opsFileid;
-
-    if (!opsFileId) throw new Error("Operation ID not found");
-
-    // Transform payload into backend schema
-    const backendPayload: OpsfileCommentCreateBackend = {
-      op_id: opsFileId,
-      author: newCommentData?.author,
-      content: newCommentData?.content,
-    };
-
-    const url = `${BACKEND_BASE_URL}/ops/comments/`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(backendPayload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Invalid response ${response.status}`);
-    }
-
-    const jsonResponse: OpsFileCommentBackend | undefined =
-      await response.json();
-
-    if (!jsonResponse) {
-      throw new Error("No JSON data obtained");
-    }
-
-    // Transform response into internal schema
-    const newComment: OpsFileComment = {
-      commentId: jsonResponse?.comment_id,
-      opsFileId: jsonResponse?.op_id,
-      author: jsonResponse?.author,
-      content: jsonResponse?.content,
-      createdAt: jsonResponse?.created_at,
-    };
-
-    return newComment;
-  } catch (error) {
-    console.error("Failure creating an ops file comment", error);
-    return Promise.reject(`${error}`);
-  }
-};
-
-/**
- * Delete an ops file
- *
- * @param {string} opsFileId
- *
- * @return {{ ok: boolean }}
- */
-export const deleteOpsFileComment = async (
-  commentId: string
-): Promise<boolean> => {
-  try {
-    if (!commentId) throw new Error("Comment ID not found");
-
-    const url = `${BACKEND_BASE_URL}/ops/comments/${commentId}`;
-
-    const response = await fetch(url, {
-      method: "DELETE",
-    });
-
-    // TODO validate 404 response
-
-    if (!response.ok) {
-      throw new Error(`Invalid response ${response.status}`);
-    }
-
-    const jsonResponse: { ok: boolean } | undefined = await response.json();
-
-    if (!jsonResponse) {
-      throw new Error("No JSON data obtained");
-    }
-
-    return jsonResponse?.ok || false;
-  } catch (error) {
-    console.error("Failure deleting an ops file comment", error);
-    return Promise.reject(`${error}`);
-  }
-};
-
-/**
  * Icon for Operation type
  *
  * @param {string} type
@@ -566,6 +673,7 @@ export const getOpsTypeIcon = (
     [OperationTypes.AIR]: <Plane {...IconProps} />,
     [OperationTypes.ROAD]: <Truck {...IconProps} />,
     [OperationTypes.TRAIN]: <Train {...IconProps} />,
+    [OperationTypes.OTHER]: <CircleHelp {...IconProps} />,
   };
 
   return icons?.[type as OperationType] || <HelpCircle {...IconProps} />;
@@ -584,29 +692,10 @@ export const getOpsTypeName = (type: string, defaultValue?: string) => {
     [OperationTypes.AIR]: "Air",
     [OperationTypes.ROAD]: "Road",
     [OperationTypes.TRAIN]: "Train",
+    [OperationTypes.OTHER]: "Other",
   };
 
   return names?.[type as OperationType] || defaultValue || type;
-};
-
-/**
- * Name for Operation type
- *
- * @param {string} type
- *
- * @return {string}
- */
-export const getOpsStatusName = (statusId: number, defaultValue?: string) => {
-  const names: Record<OperationStatus, string> = {
-    [OperationStatuses.OPENED]: "Opened",
-    [OperationStatuses.IN_TRANSIT]: "In transit",
-    [OperationStatuses.ON_DESTINATION]: "On destination",
-    [OperationStatuses.IN_WAREHOUSE]: "In warehouse",
-    [OperationStatuses.PREALERTED]: "Prealerted",
-    [OperationStatuses.CLOSED]: "Closed",
-  };
-
-  return names?.[statusId as OperationStatus] || defaultValue || "unknown";
 };
 
 /**

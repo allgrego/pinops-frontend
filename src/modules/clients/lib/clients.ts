@@ -10,6 +10,29 @@ import type {
 } from "@/modules/clients/types/clients";
 
 /**
+ * Transform client from backend schema into internal schema
+ *
+ * @param {ClientBackend} clientBackend
+ *
+ * @returns {Client}
+ */
+export const serializeClient = (client: ClientBackend): Client => {
+  const serializedClient: Client = {
+    clientId: client?.client_id || "",
+    name: client?.name || "",
+    taxId: client?.tax_id || null,
+    address: client?.address || null,
+    contactEmail: client?.contact_email || null,
+    contactName: client?.contact_name || null,
+    contactPhone: client?.contact_phone || null,
+    disabled: client?.disabled || false,
+    createdAt: client?.created_at || "",
+  };
+
+  return serializedClient;
+};
+
+/**
  * Get all clients
  *
  * @return {Client[]}
@@ -32,17 +55,9 @@ export const getAllClients = async (): Promise<Client[]> => {
 
     // Transform into internal schema
 
-    const clients: Client[] = jsonResponse.map((client) => ({
-      clientId: client?.client_id || "",
-      name: client?.name || "",
-      taxId: client?.tax_id || "",
-      contactEmail: client?.contact_email || "",
-      contactName: client?.contact_name || "",
-      createdAt: client?.created_at || "",
-      contactPhone: client?.contact_phone || "",
-      address: client?.address || "",
-      disabled: client?.disabled || false,
-    }));
+    const clients: Client[] = jsonResponse.map((client) =>
+      serializeClient(client)
+    );
 
     return clients;
   } catch (error) {
@@ -94,16 +109,7 @@ export const createClient = async (
     }
 
     // Transform response into internal schema
-    const newClient: Client = {
-      clientId: jsonResponse?.client_id || "",
-      name: jsonResponse?.name || "",
-      taxId: jsonResponse?.tax_id || "",
-      contactEmail: jsonResponse?.contact_email || "",
-      contactName: jsonResponse?.contact_name || "",
-      createdAt: jsonResponse?.created_at || "",
-      contactPhone: jsonResponse?.contact_phone || "",
-      disabled: jsonResponse?.disabled || false,
-    };
+    const newClient: Client = serializeClient(jsonResponse);
 
     return newClient;
   } catch (error) {
@@ -157,17 +163,7 @@ export const updateClient = async (
     }
 
     // Transform response into internal schema
-    const updatedClient: Client = {
-      clientId: jsonResponse?.client_id || "",
-      name: jsonResponse?.name || "",
-      taxId: jsonResponse?.tax_id || "",
-      contactEmail: jsonResponse?.contact_email || "",
-      contactName: jsonResponse?.contact_name || "",
-      createdAt: jsonResponse?.created_at || "",
-      contactPhone: jsonResponse?.contact_phone || "",
-      address: jsonResponse?.address || "",
-      disabled: jsonResponse?.disabled || false,
-    };
+    const updatedClient: Client = serializeClient(jsonResponse);
 
     return updatedClient;
   } catch (error) {

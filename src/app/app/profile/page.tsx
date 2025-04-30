@@ -65,7 +65,7 @@ export default function ProfilePage() {
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Role
                 </h3>
-                <p className="capitalize">{user.role}</p>
+                <p className="capitalize">{user.role.roleName}</p>
               </div>
 
               <div>

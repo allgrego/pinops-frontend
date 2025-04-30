@@ -1,6 +1,10 @@
 export function numberOrNull(
   value: string | number | null | undefined
 ): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
   if (!["number", "string"].includes(typeof value)) {
     return null;
   }

@@ -48,7 +48,8 @@ import {
 } from "@/core/components/ui/table";
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
+import useClients from "@/modules/clients/hooks/useClients";
 import {
   createClient,
   deleteClient,
@@ -59,14 +60,13 @@ import {
   ClientCreate,
   ClientUpdate,
 } from "@/modules/clients/types/clients";
-import useClients from "@/modules/hooks/useClients";
 
 export default function ClientsPage() {
   /**
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role.role_id;
+  const userRole = user?.role;
 
   /**
    * - - - Clients fetching
@@ -655,7 +655,7 @@ export default function ClientsPage() {
                             setCurrentClient(client);
                             openDeleteConfirmationDialog();
                           }}
-                          disabled={userRole !== UserRoles.ADMIN}
+                          disabled={userRole?.roleId !== UserRolesIds.ADMIN}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -859,7 +859,8 @@ export default function ClientsPage() {
             <Button
               variant="destructive"
               disabled={
-                updateClientMutation.isPending || userRole !== UserRoles.ADMIN
+                updateClientMutation.isPending ||
+                userRole?.roleId !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditClientOpen(false);

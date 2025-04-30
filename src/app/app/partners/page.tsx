@@ -70,9 +70,10 @@ import {
 } from "@/core/components/ui/tabs";
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
 import useCountries from "@/modules/geodata/hooks/useCountries";
+import PartnerTypeBadge from "@/modules/partners/components/PartnerTypeBadge/PartnerTypeBadge";
 import usePartnerTypes from "@/modules/partners/hooks/usePartnerTypes";
 import usePartners from "@/modules/partners/hooks/usePartners";
 import {
@@ -80,7 +81,6 @@ import {
   deletePartner,
   updatePartner,
 } from "@/modules/partners/lib/partners";
-import { PartnerTypesIds } from "@/modules/partners/setup/partners";
 import {
   Partner,
   PartnerContactCreateWithoutPartnerId,
@@ -95,7 +95,7 @@ export default function PartnersPage() {
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role.role_id;
+  const userRole = user?.role.roleId;
 
   /**
    * - - - Partner types fetching
@@ -784,43 +784,6 @@ export default function PartnersPage() {
                     ))}
                   </div>
                 )}
-
-                {/* Contact */}
-                {/* <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="contactName">Contact name</Label>
-                  <Input
-                    id="contactName"
-                    value={newPartnerData?.contactName || ""}
-                    onChange={(e) =>
-                      updateNewPartnerData({ contactName: e.target.value })
-                    }
-                    placeholder="Teresa Torres"
-                  />
-                  </div>
-                <div className="space-y-2">
-                <Label htmlFor="contactPhone">Contact phone</Label>
-                <Input
-                    id="contactPhone"
-                    value={newPartnerData?.contactPhone || ""}
-                    onChange={(e) =>
-                      updateNewPartnerData({ contactPhone: e.target.value })
-                    }
-                    placeholder="+12 456 78 90"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail">Contact email</Label>
-                <Input
-                  id="contactEmail"
-                  value={newPartnerData?.contactEmail || ""}
-                  onChange={(e) =>
-                  updateNewPartnerData({ contactEmail: e.target.value })
-                  }
-                  placeholder="agent@email.com"
-                />
-              </div> */}
               </div>
             </ScrollArea>
             <DialogFooter>
@@ -1354,7 +1317,8 @@ export default function PartnersPage() {
             <Button
               variant="outline"
               disabled={
-                updatePartnerMutation.isPending || userRole !== UserRoles.ADMIN
+                updatePartnerMutation.isPending ||
+                userRole !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditPartnerOpen(false);
@@ -1425,27 +1389,6 @@ const PartnersTable: FC<PartnersTableProps> = ({
   onSetDisable,
   userRoleId,
 }) => {
-  /**
-   * Get the custom styles for each partner type ID (default styles if not included)
-   *
-   * @param {string} typeId
-   *
-   * @returns {string}
-   */
-  const getPartnerTypeStyles = (type: string) => {
-    const styles: Partial<Record<PartnerTypesIds, string>> = {
-      [PartnerTypesIds.LOGISTICS_OPERATOR]: "bg-blue-100 text-blue-800",
-      [PartnerTypesIds.PORT_AGENT]: "bg-purple-100 text-purple-800",
-      [PartnerTypesIds.INSURER]: "bg-yellow-100 text-yellow-800",
-      [PartnerTypesIds.CUSTOMS_BROKER]: "bg-green-100 text-green-800",
-      // TODO add the rest
-    };
-
-    const defaultStyle = "bg-gray-100 text-gray-800";
-
-    return styles?.[type as PartnerTypesIds] || defaultStyle;
-  };
-
   return (
     <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
       <Table className="w-full overflow-x-auto">
@@ -1508,13 +1451,11 @@ const PartnersTable: FC<PartnersTableProps> = ({
                   className="font-medium text-xs"
                   onClick={() => onOpenDetails(partner)}
                 >
-                  <Badge
-                    className={getPartnerTypeStyles(
-                      partner?.partnerType.partnerTypeId
-                    )}
+                  <PartnerTypeBadge
+                    partnerTypeId={partner?.partnerType.partnerTypeId}
                   >
                     {partner?.partnerType?.name || "-"}
-                  </Badge>
+                  </PartnerTypeBadge>
                 </TableCell>
                 <TableCell className="" onClick={() => onOpenDetails(partner)}>
                   <div className="text-sm">
@@ -1580,7 +1521,7 @@ const PartnersTable: FC<PartnersTableProps> = ({
                           onDelete(partner);
                         }}
                         disabled={
-                          !!userRoleId && userRoleId !== UserRoles.ADMIN
+                          !!userRoleId && userRoleId !== UserRolesIds.ADMIN
                         }
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

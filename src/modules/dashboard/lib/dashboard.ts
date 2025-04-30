@@ -1,6 +1,9 @@
 import { BACKEND_BASE_URL } from "@/core/setup/routes";
 
-import { Statistics, StatisticsBackend } from "@/modules/dashboard/types/dashboard";
+import {
+  Statistics,
+  StatisticsBackend,
+} from "@/modules/dashboard/types/dashboard";
 
 export const getGeneralStats = async (): Promise<Statistics> => {
   try {
@@ -21,10 +24,12 @@ export const getGeneralStats = async (): Promise<Statistics> => {
     // Transform into internal schema
 
     const stats: Statistics = {
-      totalAgents: jsonResponse.total_agents,
+      totalPartners: jsonResponse.total_partners,
       totalCarriers: jsonResponse.total_carriers,
       totalClients: jsonResponse.total_clients,
       totalOpsFiles: jsonResponse.total_ops_files,
+      totalClosedOpsFiles: jsonResponse.total_closed_ops_files,
+      totalOpenOpsFiles: jsonResponse.total_open_ops_files,
     };
 
     return stats;

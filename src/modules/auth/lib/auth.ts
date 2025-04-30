@@ -4,8 +4,8 @@ import { persist } from "zustand/middleware";
 import { getRoute } from "@/core/lib/routes";
 
 import { UserLoginBackend } from "@/modules/auth/types/auth";
-
-import { User } from "@/modules/users/types/users.types";
+import { serializeUser } from "@/modules/users/lib/users";
+import { User, UserBackend } from "@/modules/users/types/users.types";
 
 /**
  * Login by getting user data from backend if valid credentials
@@ -42,11 +42,13 @@ export const validateCredentials = async (
       throw new Error(`Invalid response ${response.status}`);
     }
 
-    const user: User | undefined = await response.json();
+    const jsonResponse: UserBackend | undefined = await response.json();
 
-    if (!user) {
+    if (!jsonResponse) {
       throw new Error("No data obtained on login");
     }
+
+    const user: User = serializeUser(jsonResponse);
 
     return user;
   } catch (error) {

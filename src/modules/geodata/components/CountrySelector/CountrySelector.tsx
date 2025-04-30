@@ -15,10 +15,15 @@ type CountrySelectorProps = {
   isLoading?: boolean;
   value: number | null;
   onValueChange: (value: number | null) => void;
+  withNone?: boolean;
+  noneLabel?: string;
+  placeholder?: string;
 } & Omit<
   React.ComponentProps<typeof Select>,
   "isLoading" | "value" | "onValueChange"
 >;
+
+const NONE_VALUE = "none";
 
 const CountrySelector: React.FC<CountrySelectorProps> = ({
   countries,
@@ -26,20 +31,31 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({
   disabled = false,
   value,
   onValueChange,
+  withNone = false,
+  noneLabel,
+  placeholder,
   ...rest
 }) => {
   return (
     <Select
       value={String(value || "")}
-      onValueChange={(value) => onValueChange(Number(value))}
+      onValueChange={(value) =>
+        onValueChange(withNone && value === NONE_VALUE ? null : Number(value))
+      }
       disabled={isLoading || disabled}
       {...rest}
     >
       <SelectTrigger disabled={isLoading || disabled}>
-        <SelectValue placeholder="Select a country" />
+        <SelectValue placeholder={placeholder || "Select a country"} />
       </SelectTrigger>
 
       <SelectContent>
+        {withNone && (
+          <SelectItem value={NONE_VALUE} className="text-muted-foreground">
+            {noneLabel || "None"}
+          </SelectItem>
+        )}
+
         {!countries.length
           ? null
           : countries.map((country) => (

@@ -37,6 +37,9 @@ export type RouteAlias =
   | "clients"
   | "carriers"
   | "partners"
+  | "operations-new"
+  | "operations-by-id-details"
+  | "operations-by-id-edit"
 
   // API
   // None
@@ -76,7 +79,21 @@ export type RouteAlias =
   | "backend-partners-by-id-contacts-get"
   | "backend-geodata-countries-get-all"
   | "backend-geodata-countries-by-id-get"
-  | "backend-geodata-countries-by-iso-get";
+  | "backend-geodata-countries-by-iso-get"
+  | "backend-ops-files-get-all"
+  | "backend-ops-files-create"
+  | "backend-ops-files-by-id-get"
+  | "backend-ops-files-by-id-update"
+  | "backend-ops-files-by-id-delete"
+  | "backend-ops-files-comments-get-all"
+  | "backend-ops-files-comments-create"
+  | "backend-ops-files-comments-by-id-get"
+  | "backend-ops-files-comments-by-id-update"
+  | "backend-ops-files-comments-by-id-delete"
+  | "backend-ops-files-status-get-all"
+  | "backend-ops-files-status-by-id-get"
+  | "backend-ops-files-general-stats"
+  | "backend-users-get-all";
 
 /**
  * NextJS and other routes
@@ -89,14 +106,17 @@ export const routes: Record<RouteAlias, string> = {
   dashboard: "/app/dashboard",
   // Auth
   login: "/auth/login",
-  // Operations
-  operations: "/app/operations",
   // Clients
   clients: "/app/clients",
   // Carriers
   carriers: "/app/carriers",
   // Partners
   partners: "/app/partners",
+  // Operations
+  operations: "/app/operations",
+  "operations-new": "/app/operations/new",
+  "operations-by-id-details": "/app/operations/:id",
+  "operations-by-id-edit": "/app/operations/:id/edit",
 
   /**
    * Next.js API
@@ -150,4 +170,23 @@ export const routes: Record<RouteAlias, string> = {
   "backend-partners-contacts-by-id-update": `${BACKEND_BASE_URL}/partners/contacts/:contact_id/`,
   "backend-partners-contacts-by-id-delete": `${BACKEND_BASE_URL}/partners/contacts/:contact_id/`,
   "backend-partners-by-id-contacts-get": `${BACKEND_BASE_URL}/partners/contacts/partners/:partner_id/`,
+  // Ops files
+  "backend-ops-files-get-all": `${BACKEND_BASE_URL}/ops`,
+  "backend-ops-files-create": `${BACKEND_BASE_URL}/ops`,
+  "backend-ops-files-by-id-get": `${BACKEND_BASE_URL}/ops/:ops_file_id/`,
+  "backend-ops-files-by-id-update": `${BACKEND_BASE_URL}/ops/:ops_file_id/`,
+  "backend-ops-files-by-id-delete": `${BACKEND_BASE_URL}/ops/:ops_file_id/`,
+  // Ops file statuses
+  "backend-ops-files-status-get-all": `${BACKEND_BASE_URL}/ops/status`,
+  "backend-ops-files-status-by-id-get": `${BACKEND_BASE_URL}/ops/status/:status_id/`,
+  // Ops file comments
+  "backend-ops-files-comments-get-all": `${BACKEND_BASE_URL}/ops/comments`,
+  "backend-ops-files-comments-create": `${BACKEND_BASE_URL}/ops/comments`,
+  "backend-ops-files-comments-by-id-get": `${BACKEND_BASE_URL}/ops/comments/:comment_id/`,
+  "backend-ops-files-comments-by-id-update": `${BACKEND_BASE_URL}/ops/comments/:comment_id/`,
+  "backend-ops-files-comments-by-id-delete": `${BACKEND_BASE_URL}/ops/comments/:comment_id/`,
+  // Ops files misc
+  "backend-ops-files-general-stats": `${BACKEND_BASE_URL}/ops/general/statistics`,
+  // Users
+  "backend-users-get-all": `${BACKEND_BASE_URL}/users`,
 };

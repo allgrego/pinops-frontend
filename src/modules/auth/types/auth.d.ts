@@ -1,8 +1,8 @@
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
 
-export type UserRoleKey = keyof typeof UserRoles;
+export type UserRoleIdKey = keyof typeof UserRolesIds;
 
-export type UserRole = (typeof UserRoles)[UserRoleKey];
+export type UserRoleId = (typeof UserRoles)[UserRoleIdKey];
 
 /**
  * - - - Login

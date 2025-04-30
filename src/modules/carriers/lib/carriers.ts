@@ -24,7 +24,7 @@ import {
  *
  * @return {CarrierType}
  */
-const serializeCarrierType = (carrierType: CarrierTypeBackend): CarrierType => {
+export const serializeCarrierType = (carrierType: CarrierTypeBackend): CarrierType => {
   return {
     carrierTypeId: carrierType?.carrier_type_id,
     name: carrierType?.name,
@@ -112,7 +112,7 @@ export const getCarrierTypeById = async (
  *
  * @return {Carrier}
  */
-const serializeCarrier = (carrier: CarrierBackend): Carrier => {
+export const serializeCarrier = (carrier: CarrierBackend): Carrier => {
   return {
     carrierId: carrier?.carrier_id || "",
     name: carrier?.name || "",
@@ -327,7 +327,7 @@ export const deleteCarrier = async (carrierId: string): Promise<boolean> => {
  *
  * @return {CarrierContact}
  */
-const serializeCarrierContact = (
+export const serializeCarrierContact = (
   carrierContact: CarrierContactBackend
 ): CarrierContact => {
   return {

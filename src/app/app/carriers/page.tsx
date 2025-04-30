@@ -69,7 +69,8 @@ import {
 } from "@/core/components/ui/tabs";
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
+import CarrierTypeBadge from "@/modules/carriers/components/CarrierTypeBadge/CarrierTypeBadge";
 import useCarrierTypes from "@/modules/carriers/hooks/useCarrierTypes";
 import useCarriers from "@/modules/carriers/hooks/useCarriers";
 import {
@@ -83,7 +84,6 @@ import {
   CarrierCreate,
   CarrierUpdate,
 } from "@/modules/carriers/types/carriers.types";
-import { CarrierTypesIds } from "@/modules/carriers/setup/carriers";
 
 const ALL_TAB_OPTION = "all";
 
@@ -92,7 +92,7 @@ export default function CarriersPage() {
    * - - - Auth
    */
   const { user } = useAuth();
-  const userRole = user?.role.role_id;
+  const userRole = user?.role;
 
   /**
    * - - - Carrier types fetching
@@ -775,7 +775,7 @@ export default function CarriersPage() {
               isLoading={isLoadingCarriersData}
               isError={isErrorCarriersData}
               error={carrierTypesError || carriersError}
-              userRoleId={userRole}
+              userRoleId={userRole?.roleId || ""}
               onOpenDetails={(carrier) => openDetailsDialog(carrier)}
               onDelete={(carrier) => {
                 setCurrentCarrier(carrier);
@@ -798,7 +798,7 @@ export default function CarriersPage() {
                 isLoading={isLoadingCarriersData}
                 isError={isErrorCarriersData}
                 error={carrierTypesError || carriersError}
-                userRoleId={userRole}
+                userRoleId={userRole?.roleId || ""}
                 onOpenDetails={(carrier) => openDetailsDialog(carrier)}
                 onDelete={(carrier) => {
                   setCurrentCarrier(carrier);
@@ -1182,7 +1182,8 @@ export default function CarriersPage() {
             <Button
               variant="outline"
               disabled={
-                updateCarrierMutation.isPending || userRole !== UserRoles.ADMIN
+                updateCarrierMutation.isPending ||
+                userRole?.roleId !== UserRolesIds.ADMIN
               }
               onClick={() => {
                 setIsEditCarrierOpen(false);
@@ -1253,28 +1254,6 @@ const CarriersTable: FC<CarriersTableProps> = ({
   onSetDisable,
   userRoleId,
 }) => {
-  /**
-   * Get the custom styles for each carrier type ID (default styles if not included)
-   *
-   * @param {string} typeId
-   *
-   * @returns {string}
-   */
-  const getCarrierTypeStyles = (type: string) => {
-    const styles: Partial<Record<CarrierTypesIds, string>> = {
-      [CarrierTypesIds.AIRLINE]: "bg-blue-100 text-blue-800",
-      [CarrierTypesIds.SHIPPING_LINE]: "bg-purple-100 text-purple-800",
-      [CarrierTypesIds.ROAD_FREIGHT_INTERNATIONAL]:
-        "bg-yellow-100 text-yellow-800",
-      [CarrierTypesIds.COURIER]: "bg-green-100 text-green-800",
-      // TODO add the rest
-    };
-
-    const defaultStyle = "bg-gray-100 text-gray-800";
-
-    return styles?.[type as CarrierTypesIds] || defaultStyle;
-  };
-
   return (
     <div className="border rounded-md w-full lg:max-w-full max-w-[90vw]">
       <Table className="w-full overflow-x-auto">
@@ -1336,13 +1315,11 @@ const CarriersTable: FC<CarriersTableProps> = ({
                   className="font-medium text-xs"
                   onClick={() => onOpenDetails(carrier)}
                 >
-                  <Badge
-                    className={getCarrierTypeStyles(
-                      carrier?.carrierType.carrierTypeId
-                    )}
+                  <CarrierTypeBadge
+                    carrierTypeId={carrier?.carrierType.carrierTypeId}
                   >
                     {carrier?.carrierType?.name || "-"}
-                  </Badge>
+                  </CarrierTypeBadge>
                 </TableCell>
 
                 <TableCell className="" onClick={() => onOpenDetails(carrier)}>
@@ -1399,7 +1376,7 @@ const CarriersTable: FC<CarriersTableProps> = ({
                           onDelete(carrier);
                         }}
                         disabled={
-                          !!userRoleId && userRoleId !== UserRoles.ADMIN
+                          !!userRoleId && userRoleId !== UserRolesIds.ADMIN
                         }
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

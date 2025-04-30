@@ -14,11 +14,11 @@ export interface UserRoleBackend extends UserRoleBaseBackend {
 
 // Internal
 export interface UserRoleBase {
-  role_name: UserRoleBaseBackend["role_name"];
+  roleName: UserRoleBaseBackend["role_name"];
 }
 
 export interface UserRole extends UserRoleBase {
-  role_id: UserRoleBackend["role_id"];
+  roleId: UserRoleBackend["role_id"];
 }
 
 /**

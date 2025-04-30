@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarArrowDown,
   CalendarArrowUp,
+  CircleSmall,
   Edit,
   MapPin,
   MessageSquare,
@@ -17,6 +18,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/core/components/ui/badge";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -36,8 +38,11 @@ import { Separator } from "@/core/components/ui/separator";
 import { Textarea } from "@/core/components/ui/textarea";
 import { formatDate } from "@/core/lib/dates";
 import { shortUUID } from "@/core/lib/misc";
+import { numberOrNull } from "@/core/lib/numbers";
+import { getRoute } from "@/core/lib/routes";
 import { useAuth } from "@/modules/auth/lib/auth";
-import { UserRoles } from "@/modules/auth/setup/auth";
+import { UserRolesIds } from "@/modules/auth/setup/auth";
+import CarrierTypeBadge from "@/modules/carriers/components/CarrierTypeBadge/CarrierTypeBadge";
 import OpsStatusBadge from "@/modules/ops_files/components/OpsStatusBadge/OpsStatusBadge";
 import useOpsFile from "@/modules/ops_files/hooks/useOpsFile";
 import {
@@ -54,6 +59,7 @@ import {
   OpsFileComment,
   OpsfileCommentCreate,
 } from "@/modules/ops_files/types/ops_files.types";
+import PartnerTypeBadge from "@/modules/partners/components/PartnerTypeBadge/PartnerTypeBadge";
 
 const DEFAULT_USER_NAME = "System user";
 const DEFAULT_MISSING_DATA_TAG = "- -";
@@ -113,7 +119,7 @@ export default function OperationDetailPage() {
     const newComment = await createCommentMutation.mutateAsync({
       opsFileid: operationId,
       content: comment.trim(),
-      author: user?.name?.trim() || null, // TODO set author when user data is available
+      authorUserId: user?.userId || null, // Current user is the author
     });
 
     if (newComment) {
@@ -172,7 +178,7 @@ export default function OperationDetailPage() {
         {String(operationData?.error || "No further details")}
       </p>
       <Button asChild>
-        <Link href="/app/operations">
+        <Link href={getRoute("operations")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to operations
         </Link>
@@ -188,7 +194,7 @@ export default function OperationDetailPage() {
           The operation you{"'"}re looking for doesn{"'"}t exist.
         </p>
         <Button asChild>
-          <Link href="/app/operations">
+          <Link href={getRoute("operations")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to operations
           </Link>
@@ -219,7 +225,7 @@ export default function OperationDetailPage() {
         </div>
         <div className="flex space-x-2">
           <Button variant="outline" asChild disabled>
-            <Link href={`/app/operations/${operationId}/edit`}>
+            <Link href={getRoute("operations-by-id-edit", [operationId])}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Link>
@@ -232,7 +238,7 @@ export default function OperationDetailPage() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href={`/app/operations`}>Operations</Link>
+                <Link href={getRoute("operations")}>Operations</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -271,11 +277,35 @@ export default function OperationDetailPage() {
                   {getOpsTypeName(operation?.opType, DEFAULT_MISSING_DATA_TAG)}
                 </p>
               </div>
-              <div className="md: col-span-2">
+              {/* Client */}
+              <div className="">
                 <h3 className="font-medium text-sm text-muted-foreground mb-1 flex gap-2">
                   <UserRound className="h-4" /> Client
                 </h3>
                 <p className="ml-1">{operation.client.name}</p>
+              </div>
+              {/* Assignee */}
+              <div className="">
+                <h3 className="font-medium text-sm text-muted-foreground mb-1 flex gap-2">
+                  <UserRound className="h-4" /> Assignee
+                </h3>
+                <div className="ml-1">
+                  {/* Show assignee data if there is */}
+                  {operation?.assignee ? (
+                    <div className="flex flex-col gap-0">
+                      <p>
+                        {operation.assignee?.name || DEFAULT_MISSING_DATA_TAG}{" "}
+                      </p>
+                      {operation?.assignee?.email && (
+                        <p className="text-xs text-muted-foreground flex gap-1 items-center">
+                          {operation.assignee.email}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    DEFAULT_MISSING_DATA_TAG
+                  )}
+                </div>
               </div>
 
               <Separator className="col-span-2 my-2" />
@@ -287,7 +317,7 @@ export default function OperationDetailPage() {
                 <p className="ml-2">
                   {[
                     operation?.originLocation || "",
-                    operation?.originCountry || "",
+                    operation?.originCountry?.iso2Code || "",
                   ]
                     // Remove empty ones
                     .filter((l) => l.trim())
@@ -302,7 +332,7 @@ export default function OperationDetailPage() {
                 <p className="ml-2">
                   {[
                     operation?.destinationLocation || "",
-                    operation?.destinationCountry || "",
+                    operation?.destinationCountry?.iso2Code || "",
                   ]
                     // Remove empty ones
                     .filter((l) => l.trim())
@@ -367,22 +397,11 @@ export default function OperationDetailPage() {
 
               <div className="col-span-2">
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                  Cargo description
+                  Commodities / Cargo description
                 </h3>
                 <p>{operation?.cargoDescription || DEFAULT_MISSING_DATA_TAG}</p>
               </div>
 
-              <div>
-                <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                  Quantity
-                </h3>
-                <p>
-                  {`${operation?.unitsQuantity || ""} ${getCargoUnitTypesName(
-                    operation?.unitsType || "",
-                    operation?.unitsQuantity === 1
-                  )}`.trim() || DEFAULT_MISSING_DATA_TAG}
-                </p>
-              </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Gross weight
@@ -408,6 +427,33 @@ export default function OperationDetailPage() {
                 </p>
               </div>
 
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground mb-1">
+                  Packaging
+                </h3>
+                {!!operation.packaging && operation.packaging.length > 0 ? (
+                  <ul className="list-inside space-y-1">
+                    {operation.packaging.map((packaging) => (
+                      <li
+                        key={packaging.packageId}
+                        className="flex items-center"
+                      >
+                        <CircleSmall className="h-3" />
+                        <Badge variant={"outline"} className="text-sm">
+                          {numberOrNull(packaging.quantity)}{" "}
+                          {getCargoUnitTypesName(
+                            packaging?.units,
+                            packaging.quantity === 1
+                          ) || "unknown units"}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{DEFAULT_MISSING_DATA_TAG}</p>
+                )}
+              </div>
+
               <Separator className="col-span-2 my-2" />
 
               <div>
@@ -416,7 +462,7 @@ export default function OperationDetailPage() {
                     ? "MBL"
                     : operation?.opType === OperationTypes.AIR
                     ? "MAWB"
-                    : "Master doc"}
+                    : "Master document number"}
                 </h3>
                 <p>
                   {operation.masterTransportDoc || DEFAULT_MISSING_DATA_TAG}
@@ -428,7 +474,7 @@ export default function OperationDetailPage() {
                     ? "HBL"
                     : operation?.opType === OperationTypes.AIR
                     ? "HAWB"
-                    : "House doc"}
+                    : "House document number"}
                 </h3>
                 <p>
                   {operation?.houseTransportDoc || DEFAULT_MISSING_DATA_TAG}
@@ -460,16 +506,37 @@ export default function OperationDetailPage() {
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Carrier
                 </h3>
-                <p>{operation?.carrier?.name || DEFAULT_MISSING_DATA_TAG}</p>
+                <div className="flex gap-2">
+                  <p>{operation?.carrier?.name || DEFAULT_MISSING_DATA_TAG}</p>
+                  {!!operation?.carrier && (
+                    <CarrierTypeBadge
+                      carrierTypeId={
+                        operation?.carrier.carrierType.carrierTypeId
+                      }
+                    >
+                      {operation?.carrier?.carrierType.name ||
+                        DEFAULT_MISSING_DATA_TAG}
+                    </CarrierTypeBadge>
+                  )}
+                </div>
               </div>
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                  Agents
+                  Partners
                 </h3>
-                {operation.agents && operation.agents.length > 0 ? (
-                  <ul className="list-disc list-inside">
-                    {operation.agents.map((agent) => (
-                      <li key={agent.agentId}>{agent.name}</li>
+                {operation.partners && operation.partners.length > 0 ? (
+                  <ul className="list-inside space-y-1">
+                    {operation.partners.map((partner) => (
+                      <li key={partner.partnerId} className="flex items-center">
+                        <CircleSmall className="h-3" />
+                        <p>{partner.name}</p>
+                        <PartnerTypeBadge
+                          partnerTypeId={partner.partnerType.partnerTypeId}
+                          className="text-xs scale-90"
+                        >
+                          {partner.partnerType.name || DEFAULT_MISSING_DATA_TAG}
+                        </PartnerTypeBadge>
+                      </li>
                     ))}
                   </ul>
                 ) : (
@@ -483,14 +550,43 @@ export default function OperationDetailPage() {
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Operation ID
                 </h3>
-                <p className="uppercase text-sm">{operation?.opsFileId}</p>
+                <p className="text-sm">{operation?.opsFileId}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground mb-1">
+                  Last update at
+                </h3>
+                <p className="text-sm">{formatDate(operation.updatedAt)}</p>
               </div>
 
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
-                  Created
+                  Created at
                 </h3>
                 <p className="text-sm">{formatDate(operation.createdAt)}</p>
+              </div>
+
+              <div>
+                <h3 className="font-medium text-sm text-muted-foreground mb-1">
+                  Created by
+                </h3>
+                <div className="text-sm">
+                  {/* Show creator user data if there is */}
+                  {operation?.creator ? (
+                    <div className="flex flex-col gap-0">
+                      <p>
+                        {operation.creator?.name || DEFAULT_MISSING_DATA_TAG}{" "}
+                      </p>
+                      {operation?.creator?.email && (
+                        <p className="text-xs text-muted-foreground flex gap-1 items-center">
+                          {operation.creator?.email}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    DEFAULT_MISSING_DATA_TAG
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -510,7 +606,7 @@ export default function OperationDetailPage() {
                   <div key={comment.commentId} className="space-y-1  group">
                     <div className="flex justify-between items-start">
                       <p className="font-medium text-sm">
-                        {comment?.author || DEFAULT_USER_NAME}
+                        {comment?.author?.name || DEFAULT_USER_NAME}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(
@@ -534,7 +630,7 @@ export default function OperationDetailPage() {
                         <Button
                           variant="outline"
                           className="cursor-pointer"
-                          disabled={userRole !== UserRoles.ADMIN}
+                          disabled={userRole?.roleId !== UserRolesIds.ADMIN}
                           onClick={() => {
                             handleDeleteComment(comment?.commentId || "");
                           }}
