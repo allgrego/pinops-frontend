@@ -377,7 +377,10 @@ export default function OperationDetailPage() {
                 <p className="ml-2">
                   {formatDate(
                     operation?.actualTimeDeparture,
-                    DEFAULT_MISSING_DATA_TAG
+                    DEFAULT_MISSING_DATA_TAG,
+                    {
+                      timeZone: "UTC", // Try specifying the timezone
+                    }
                   )}
                 </p>
               </div>
@@ -388,7 +391,10 @@ export default function OperationDetailPage() {
                 <p className="ml-2">
                   {formatDate(
                     operation?.actualTimeArrival,
-                    DEFAULT_MISSING_DATA_TAG
+                    DEFAULT_MISSING_DATA_TAG,
+                    {
+                      timeZone: "UTC", // Try specifying the timezone
+                    }
                   )}
                 </p>
               </div>
@@ -556,14 +562,22 @@ export default function OperationDetailPage() {
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Last update at
                 </h3>
-                <p className="text-sm">{formatDate(operation.updatedAt)}</p>
+                <p className="text-sm">
+                  {formatDate(operation.updatedAt, DEFAULT_MISSING_DATA_TAG, {
+                    timeZone: "UTC", // Try specifying the timezone
+                  })}
+                </p>
               </div>
 
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground mb-1">
                   Created at
                 </h3>
-                <p className="text-sm">{formatDate(operation.createdAt)}</p>
+                <p className="text-sm">
+                  {formatDate(operation.createdAt, DEFAULT_MISSING_DATA_TAG, {
+                    timeZone: "UTC", // Try specifying the timezone
+                  })}
+                </p>
               </div>
 
               <div>
@@ -613,6 +627,7 @@ export default function OperationDetailPage() {
                           comment?.createdAt,
                           DEFAULT_MISSING_DATA_TAG,
                           {
+                            timeZone: "UTC", // Try specifying the timezone
                             year: "numeric",
                             month: "numeric",
                             day: "numeric",

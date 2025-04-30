@@ -383,7 +383,10 @@ export default function OperationsPage() {
                   <TableCell>
                     {formatDate(
                       operation?.estimatedTimeArrival,
-                      DEFAULT_MISSING_DATA_TAG
+                      DEFAULT_MISSING_DATA_TAG,
+                      {
+                        timeZone: "UTC", // Try specifying the timezone
+                      }
                     )}
                   </TableCell>
 
