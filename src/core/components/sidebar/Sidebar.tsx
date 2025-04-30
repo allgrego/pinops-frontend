@@ -157,7 +157,7 @@ export function Sidebar() {
                           <div className="text-left">
                             <p className="text-sm font-medium">{user.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {user.role.role_name}
+                              {user.role.roleName}
                             </p>
                           </div>
                         </div>
@@ -242,7 +242,7 @@ export function Sidebar() {
                   <div className="text-left">
                     <p className="text-sm font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {user.role.role_name}
+                      {user.role.roleName}
                     </p>
                   </div>
                 </div>
