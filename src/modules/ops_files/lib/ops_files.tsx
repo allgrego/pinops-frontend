@@ -31,6 +31,7 @@ import {
   OpsFileUpdate,
   OpsFileUpdateBackend,
   OpsStatus,
+  OpsStatusBackend,
 } from "@/modules/ops_files/types/ops_files.types";
 import { serializePartner } from "@/modules/partners/lib/partners";
 import { Partner } from "@/modules/partners/types/partners.types";
@@ -92,6 +93,59 @@ export const allWeightUnits = Object.values(WeightUnits);
 export const allCargoUnitTypes = Object.values(CargoUnitTypes);
 
 export const allVolumeUnits = Object.values(VolumeUnits);
+
+/**
+ * - - - - -  Ops file statuses helpers
+ */
+
+/**
+ * Transform an ops file status from backend schema into internal schema
+ *
+ * @param {OpsStatusBackend} status
+ *
+ * @returns {OpsStatus}
+ */
+export const serializeOpsFileStatus = (status: OpsStatusBackend): OpsStatus => {
+  const serializedStatus: OpsStatus = {
+    statusId: status.status_id,
+    statusName: status.status_name,
+  };
+
+  return serializedStatus;
+};
+
+/**
+ * Get all ops files statuses
+ *
+ * @return {OpsStatus[]}
+ */
+export const getAllOpsFileStatuses = async (): Promise<OpsStatus[]> => {
+  try {
+    const url = getRoute("backend-ops-files-status-get-all");
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Invalid response ${response.status}`);
+    }
+
+    const jsonResponse: OpsStatusBackend[] | undefined = await response.json();
+
+    if (!jsonResponse) {
+      throw new Error("No JSON data obtained");
+    }
+
+    // Transform into internal schema
+    const statuses: OpsStatus[] = jsonResponse.map((status) =>
+      serializeOpsFileStatus(status)
+    );
+
+    return statuses;
+  } catch (error) {
+    console.error("Failure getting all ops files statuses", error);
+    throw error;
+  }
+};
 
 /**
  * - - - - -  Ops file Comments helpers

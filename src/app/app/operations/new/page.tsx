@@ -1,13 +1,23 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarArrowDown,
+  CalendarArrowUp,
+  Check,
+  ChevronsUpDown,
+  MapPin,
+  Plus,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FC, useState } from "react";
+import { useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import OptionalFieldTag from "@/core/components/OptionalFieldTag/OptionalFieldTag";
 import { Badge } from "@/core/components/ui/badge";
 import {
   Breadcrumb,
@@ -892,6 +902,7 @@ export default function NewOperationPage() {
                     placeholder="12.03"
                     type="number"
                     step="0.01"
+                    inputMode="decimal"
                   />
                 </div>
                 <div className="space-y-2">
@@ -958,6 +969,7 @@ export default function NewOperationPage() {
                     type="number"
                     step="0.001"
                     placeholder="2.123"
+                    inputMode="decimal"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1097,6 +1109,7 @@ export default function NewOperationPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="origin_location">
+                    <MapPin className="h-4 text-emerald-500" />
                     Origin location <OptionalFieldTag />
                   </Label>
                   <Input
@@ -1133,6 +1146,7 @@ export default function NewOperationPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="destination_location">
+                    <MapPin className="h-4 text-blue-500" />
                     Destination location <OptionalFieldTag />
                   </Label>
                   <Input
@@ -1173,13 +1187,17 @@ export default function NewOperationPage() {
                   <Label htmlFor="estimated_time_departure">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger>ETD</TooltipTrigger>
+                        <TooltipTrigger>
+                          <div className="flex items-center gap-1">
+                            <CalendarArrowUp className="h-4 text-emerald-500" />{" "}
+                            ETD <OptionalFieldTag />
+                          </div>
+                        </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs">Estimated time of departure</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <OptionalFieldTag />
                   </Label>
                   <Input
                     id="estimated_time_departure"
@@ -1187,38 +1205,22 @@ export default function NewOperationPage() {
                     {...formData.register("estimatedTimeDeparture")}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="actual_time_departure">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>ATD</TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Actual time of departure</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <OptionalFieldTag />
-                  </Label>
-                  <Input
-                    id="actual_time_departure"
-                    type="date"
-                    {...formData.register("actualTimeDeparture")}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estimated_time_arrival">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger>ETA</TooltipTrigger>
+                        <TooltipTrigger>
+                          <div className="flex items-center gap-1">
+                            <CalendarArrowDown className="h-4 text-blue-500" />{" "}
+                            ETA <OptionalFieldTag />
+                          </div>
+                        </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs">Estimated time of arrival</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <OptionalFieldTag />
                   </Label>
                   <Input
                     id="estimated_time_arrival"
@@ -1226,17 +1228,46 @@ export default function NewOperationPage() {
                     {...formData.register("estimatedTimeArrival")}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="actual_time_departure">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <div className="flex items-center gap-1">
+                            <CalendarArrowUp className="h-4 text-emerald-500" />{" "}
+                            ATD <OptionalFieldTag />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Actual time of departure</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Input
+                    id="actual_time_departure"
+                    type="date"
+                    {...formData.register("actualTimeDeparture")}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="actual_time_arrival">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger>ATA</TooltipTrigger>
+                        <TooltipTrigger>
+                          <div className="flex items-center gap-1">
+                            <CalendarArrowDown className="h-4 text-blue-500" />{" "}
+                            ATA <OptionalFieldTag />
+                          </div>
+                        </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs">Actual time of arrival</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    <OptionalFieldTag />
                   </Label>
                   <Input
                     id="actual_time_arrival"
@@ -1348,7 +1379,3 @@ export default function NewOperationPage() {
     </div>
   );
 }
-
-const OptionalFieldTag: FC = () => {
-  return <span className="text-xs text-muted-foreground">(optional)</span>;
-};
