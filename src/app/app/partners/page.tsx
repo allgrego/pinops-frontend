@@ -12,6 +12,7 @@ import {
   Phone,
   Plus,
   Search,
+  Smartphone,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -71,7 +72,7 @@ import {
 import useDialog from "@/core/hooks/useDialog";
 import { useAuth } from "@/modules/auth/lib/auth";
 import { UserRolesIds } from "@/modules/auth/setup/auth";
-import CountrySelector from "@/modules/geodata/components/CountrySelector/CountrySelector";
+import CountrySelectorV1 from "@/modules/geodata/components/CountrySelector/CountrySelectorV1";
 import useCountries from "@/modules/geodata/hooks/useCountries";
 import PartnerTypeBadge from "@/modules/partners/components/PartnerTypeBadge/PartnerTypeBadge";
 import usePartnerTypes from "@/modules/partners/hooks/usePartnerTypes";
@@ -622,7 +623,7 @@ export default function PartnersPage() {
                       Country{" "}
                       <span className="text-muted-foreground">(optional)</span>
                     </Label>
-                    <CountrySelector
+                    <CountrySelectorV1
                       countries={countries || []}
                       isLoading={countriesIsLoading}
                       value={newPartnerData?.countryId || null}
@@ -706,7 +707,7 @@ export default function PartnersPage() {
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                           <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                            <div className="space-y-2 col-span-2">
                               <Label htmlFor={`contact-name-${index}`}>
                                 Name <span className="text-red-500">*</span>
                               </Label>
@@ -752,11 +753,33 @@ export default function PartnersPage() {
                               <Input
                                 id={`contact-email-${index}`}
                                 type="email"
+                                inputMode="email"
                                 value={contact.email || ""}
                                 onChange={(e) =>
                                   updateContact(index, "email", e.target.value)
                                 }
                                 placeholder="Email address"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label
+                                htmlFor={`contact-mobile-${index}`}
+                                className="flex items-center gap-1"
+                              >
+                                <Smartphone className="h-3 w-3" /> Mobile
+                                <span className="text-muted-foreground">
+                                  (optional)
+                                </span>
+                              </Label>
+                              <Input
+                                id={`contact-mobile-${index}`}
+                                value={contact.mobile || ""}
+                                type="tel"
+                                inputMode="tel"
+                                onChange={(e) =>
+                                  updateContact(index, "mobile", e.target.value)
+                                }
+                                placeholder="Mobile"
                               />
                             </div>
                             <div className="space-y-2">
@@ -772,6 +795,8 @@ export default function PartnersPage() {
                               <Input
                                 id={`contact-phone-${index}`}
                                 value={contact.phone || ""}
+                                type="tel"
+                                inputMode="tel"
                                 onChange={(e) =>
                                   updateContact(index, "phone", e.target.value)
                                 }
@@ -826,21 +851,25 @@ export default function PartnersPage() {
           defaultValue={ALL_TAB_OPTION}
           value={selectedTab}
           onValueChange={setSelectedTab}
+          orientation="horizontal"
+          className="max-w-[90vw]"
         >
-          <TabsList className="gap-x-2">
-            <TabsTrigger className="cursor-pointer" value={ALL_TAB_OPTION}>
-              All partners
-            </TabsTrigger>
-            {partnerTypes?.map((type) => (
-              <TabsTrigger
-                className="cursor-pointer"
-                key={type.partnerTypeId}
-                value={type.partnerTypeId}
-              >
-                {type.name}
+          <div className="relative w-full overflow-x-auto scrollbar-hide">
+            <TabsList className="gap-x-2">
+              <TabsTrigger className="cursor-pointer" value={ALL_TAB_OPTION}>
+                All partners
               </TabsTrigger>
-            ))}
-          </TabsList>
+              {partnerTypes?.map((type) => (
+                <TabsTrigger
+                  className="cursor-pointer"
+                  key={type.partnerTypeId}
+                  value={type.partnerTypeId}
+                >
+                  {type.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           <TabsContent value={ALL_TAB_OPTION} className="mt-4">
             <PartnersTable
@@ -1137,7 +1166,7 @@ export default function PartnersPage() {
                     Country{" "}
                     <span className="text-muted-foreground">(optional)</span>
                   </Label>
-                  <CountrySelector
+                  <CountrySelectorV1
                     countries={countries || []}
                     isLoading={countriesIsLoading}
                     value={editPartnerData?.countryId || null}
@@ -1221,7 +1250,7 @@ export default function PartnersPage() {
                       </CardHeader>
                       <CardContent className="p-4 pt-0">
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
+                          <div className="space-y-2 col-span-2">
                             <Label htmlFor={`contact-name-${index}`}>
                               Name <span className="text-red-500">*</span>
                             </Label>
@@ -1280,6 +1309,31 @@ export default function PartnersPage() {
                           </div>
                           <div className="space-y-2">
                             <Label
+                              htmlFor={`contact-mobile-${index}`}
+                              className="flex items-center gap-1"
+                            >
+                              <Smartphone className="h-3 w-3" /> Mobile
+                              <span className="text-muted-foreground">
+                                (optional)
+                              </span>
+                            </Label>
+                            <Input
+                              id={`contact-mobile-${index}`}
+                              value={contact.mobile || ""}
+                              type="tel"
+                              inputMode="tel"
+                              onChange={(e) =>
+                                updateEditContact(
+                                  index,
+                                  "mobile",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Mobile"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
                               htmlFor={`contact-phone-${index}`}
                               className="flex items-center gap-1"
                             >
@@ -1290,6 +1344,8 @@ export default function PartnersPage() {
                             </Label>
                             <Input
                               id={`contact-phone-${index}`}
+                              type="tel"
+                              inputMode="tel"
                               value={contact.phone || ""}
                               onChange={(e) =>
                                 updateEditContact(

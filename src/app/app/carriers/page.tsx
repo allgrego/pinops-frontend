@@ -11,6 +11,7 @@ import {
   Phone,
   Plus,
   Search,
+  Smartphone,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -633,7 +634,7 @@ export default function CarriersPage() {
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                           <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                            <div className="space-y-2 col-span-2">
                               <Label htmlFor={`contact-name-${index}`}>
                                 Name <span className="text-red-500">*</span>
                               </Label>
@@ -679,11 +680,33 @@ export default function CarriersPage() {
                               <Input
                                 id={`contact-email-${index}`}
                                 type="email"
+                                inputMode="email"
                                 value={contact.email || ""}
                                 onChange={(e) =>
                                   updateContact(index, "email", e.target.value)
                                 }
                                 placeholder="Email address"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label
+                                htmlFor={`contact-mobile-${index}`}
+                                className="flex items-center gap-1"
+                              >
+                                <Smartphone className="h-3 w-3" /> Mobile
+                                <span className="text-muted-foreground">
+                                  (optional)
+                                </span>
+                              </Label>
+                              <Input
+                                id={`contact-mobile-${index}`}
+                                title="tel"
+                                inputMode="tel"
+                                value={contact.mobile || ""}
+                                onChange={(e) =>
+                                  updateContact(index, "mobile", e.target.value)
+                                }
+                                placeholder="Mobile number"
                               />
                             </div>
                             <div className="space-y-2">
@@ -698,6 +721,8 @@ export default function CarriersPage() {
                               </Label>
                               <Input
                                 id={`contact-phone-${index}`}
+                                title="tel"
+                                inputMode="tel"
                                 value={contact.phone || ""}
                                 onChange={(e) =>
                                   updateContact(index, "phone", e.target.value)
@@ -753,21 +778,25 @@ export default function CarriersPage() {
           defaultValue={ALL_TAB_OPTION}
           value={selectedTab}
           onValueChange={setSelectedTab}
+          orientation="horizontal"
+          className="max-w-[90vw]"
         >
-          <TabsList className="gap-x-2">
-            <TabsTrigger className="cursor-pointer" value={ALL_TAB_OPTION}>
-              All carriers
-            </TabsTrigger>
-            {carrierTypes?.map((type) => (
-              <TabsTrigger
-                className="cursor-pointer"
-                key={type.carrierTypeId}
-                value={type.carrierTypeId}
-              >
-                {type.name}
+          <div className="relative w-full overflow-x-auto scrollbar-hide">
+            <TabsList className="space-x-2">
+              <TabsTrigger className="cursor-pointer" value={ALL_TAB_OPTION}>
+                All carriers
               </TabsTrigger>
-            ))}
-          </TabsList>
+              {carrierTypes?.map((type) => (
+                <TabsTrigger
+                  className="cursor-pointer"
+                  key={type.carrierTypeId}
+                  value={type.carrierTypeId}
+                >
+                  {type.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           <TabsContent value={ALL_TAB_OPTION} className="mt-4">
             <CarriersTable
@@ -1086,7 +1115,7 @@ export default function CarriersPage() {
                       </CardHeader>
                       <CardContent className="p-4 pt-0">
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
+                          <div className="space-y-2 col-span-2">
                             <Label htmlFor={`contact-name-${index}`}>
                               Name <span className="text-red-500">*</span>
                             </Label>
@@ -1132,6 +1161,7 @@ export default function CarriersPage() {
                             <Input
                               id={`contact-email-${index}`}
                               type="email"
+                              inputMode="email"
                               value={contact.email || ""}
                               onChange={(e) =>
                                 updateEditContact(
@@ -1141,6 +1171,31 @@ export default function CarriersPage() {
                                 )
                               }
                               placeholder="Email address"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor={`contact-mobile-${index}`}
+                              className="flex items-center gap-1"
+                            >
+                              <Smartphone className="h-3 w-3" /> Mobile
+                              <span className="text-muted-foreground">
+                                (optional)
+                              </span>
+                            </Label>
+                            <Input
+                              id={`contact-mobile-${index}`}
+                              title="tel"
+                              inputMode="tel"
+                              value={contact.mobile || ""}
+                              onChange={(e) =>
+                                updateEditContact(
+                                  index,
+                                  "mobile",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Mobile number"
                             />
                           </div>
                           <div className="space-y-2">
@@ -1155,6 +1210,8 @@ export default function CarriersPage() {
                             </Label>
                             <Input
                               id={`contact-phone-${index}`}
+                              title="tel"
+                              inputMode="tel"
                               value={contact.phone || ""}
                               onChange={(e) =>
                                 updateEditContact(
